@@ -1,0 +1,73 @@
+name: carpediem
+description: A new Flutter project.
+publish_to: none
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # --- Database & FTS5 Bindings ---
+  sqflite: ^2.4.2
+  sqflite_common_ffi: ^2.3.4
+  sqlite3_flutter_libs: ^0.5.25
+  path_provider: ^2.1.2
+  path: ^1.9.1
+
+  # --- Core Utilities ---
+  intl: ^0.19.0
+  permission_handler: ^11.3.1
+  flutter_contacts: ^1.1.7+1
+  # Upgraded to 6.2.0 to permanently fix the Linux CI interface error
+  record: ^6.2.0
+  uuid: ^4.6.0
+
+  # --- Core UI & Responsive Design ---
+  sizer: ^2.0.15
+  flutter_svg: ^2.0.9
+  google_fonts: ^6.1.0
+  shared_preferences: ^2.2.2
+  web: ^1.1.1
+  
+  # --- Feature Dependencies ---
+  cached_network_image: ^3.3.1
+  connectivity_plus: ^6.1.4
+  dio: ^5.4.0
+  fluttertoast: ^8.2.4
+  fl_chart: ^0.65.0
+  go_router: ^14.6.1
+  android_alarm_manager_plus: ^5.1.1
+  speech_to_text: ^7.4.0
+  flutter_tts: ^4.2.5
+  sqflite_common_ffi_web: ^1.1.2
+  flutter_animate: ^4.5.2
+
+dev_dependencies:
+  flutter_test:    # CRITICAL: Required for Flutter project testing - DO NOT REMOVE
+    sdk: flutter   # CRITICAL: Required for Flutter project testing - DO NOT REMOVE
+  flutter_lints: ^5.0.0 # CRITICAL: Required for code quality - DO NOT REMOVE
+  flutter_launcher_icons: ^0.14.4 # Generate Android launcher icons from PNG asset
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/images/svg-code-2048x2048-1787227921551.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#121212"
+  adaptive_icon_foreground: "assets/images/svg-code-2048x2048-1787227921551.png"
+
+flutter:
+  uses-material-design: true # CRITICAL: Required for Material icon font - DO NOT REMOVE
+  assets:
+    - assets/
+    - assets/images/
+  # CRITICAL ASSET MANAGEMENT RULES:
+  # - DO NOT ADD NEW ASSET DIRECTORIES (assets/svg/, assets/icons/, etc.)
+  # - ONLY USE EXISTING AND ITEMS AVAILABLE IN THE DIRECTORIES LISTED ABOVE (assets/, assets/images/)
+  
+  # CRITICAL FONTS RULE: 
+  # - THIS PROJECT USES GOOGLE FONTS INSTEAD OF LOCAL FONTS
+  # - DO NOT ADD ANY LOCAL FONTS SECTION OR FONT FILES
