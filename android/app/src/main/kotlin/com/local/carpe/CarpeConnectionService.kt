@@ -265,7 +265,7 @@ class CarpeConnection(
                 SQLiteDatabase.OPEN_READWRITE
             ).use { db ->
                 db.execSQL(
-                    "UPDATE tasks SET due_date = ?, status = 'PENDING' WHERE id = ?",
+                    "UPDATE tasks SET status = 'SNOOZED', due_date = ? WHERE id = ?",
                     arrayOf(newTimestamp, taskId)
                 )
             }
