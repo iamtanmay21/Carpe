@@ -3,11 +3,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/theme.dart';
 import 'ui/dashboard_screen.dart';
 import 'ui/permissions_firewall.dart';
-import 'services/background_direct_reply_service.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initializeBackgroundDirectReplyNotification();
+  await NotificationService.initialize();
+  await NotificationService.showPersistentInputNotification();
 
   final prefs = await SharedPreferences.getInstance();
   final bool setupDone = prefs.getBool('firewall_setup_completed') ?? false;

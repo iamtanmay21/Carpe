@@ -10,6 +10,8 @@ class Task {
   final String? routineDays;
   final String? contactName;
   final String? contactNumber;
+  final String? voiceNotePath;
+  final bool isNonPriority;
   
   final bool isAllDay;
   final String timeBlockBucket;
@@ -24,6 +26,8 @@ class Task {
     this.routineDays,
     this.contactName,
     this.contactNumber,
+    this.voiceNotePath,
+    this.isNonPriority = false,
     this.isAllDay = false,
     this.timeBlockBucket = 'none',
   }) : dueDateTime = DateTime.fromMillisecondsSinceEpoch(dueTimestamp);
@@ -42,6 +46,8 @@ class Task {
     dynamic routineDays, // Changed to dynamic to accept List<String> from capture_sheet.dart
     String? contactName,
     String? contactNumber,
+    String? voiceNotePath,
+    bool isNonPriority = false,
   }) {
     // Automatically convert List<String> to a comma-separated String for SQLite
     String? parsedRoutineDays;
@@ -63,6 +69,8 @@ class Task {
       routineDays: parsedRoutineDays,
       contactName: contactName,
       contactNumber: contactNumber,
+      voiceNotePath: voiceNotePath,
+      isNonPriority: isNonPriority,
     );
   }
 
@@ -77,7 +85,9 @@ class Task {
       'audioPath': audioPath,
       'routineDays': routineDays,
       'contactName': contactName,
-      'contactNumber': contactNumber,
+      'contact_number': contactNumber,
+      'voice_note_path': voiceNotePath,
+      'is_non_priority': isNonPriority ? 1 : 0,
       'is_all_day': isAllDay ? 1 : 0,
       'time_block_bucket': timeBlockBucket,
     };
@@ -105,7 +115,9 @@ class Task {
       audioPath: map['audioPath']?.toString(),
       routineDays: map['routineDays']?.toString(),
       contactName: map['contactName']?.toString(),
-      contactNumber: map['contactNumber']?.toString(),
+      contactNumber: map['contact_number']?.toString() ?? map['contactNumber']?.toString(),
+      voiceNotePath: map['voice_note_path']?.toString() ?? map['voiceNotePath']?.toString(),
+      isNonPriority: (map['is_non_priority'] == 1) || (map['isNonPriority'] == 1),
       isAllDay: (map['is_all_day'] == 1) || (map['isAllDay'] == 1),
       timeBlockBucket: map['time_block_bucket']?.toString() ?? map['timeBlockBucket']?.toString() ?? 'none',
     );

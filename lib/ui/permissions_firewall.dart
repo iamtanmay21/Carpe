@@ -66,6 +66,8 @@ class _PermissionsFirewallState extends State<PermissionsFirewall> with WidgetsB
       return;
     }
 
+    await Permission.notification.request();
+
     final mic = await Permission.microphone.isGranted;
     final contacts = await Permission.contacts.isGranted;
     final alarms = await Permission.scheduleExactAlarm.isGranted;
