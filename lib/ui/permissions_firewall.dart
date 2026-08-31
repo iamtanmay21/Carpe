@@ -20,6 +20,7 @@ class _PermissionsFirewallState extends State<PermissionsFirewall> with WidgetsB
   bool _micGranted = false;
   bool _contactsGranted = false;
   bool _alarmsGranted = false;
+  bool _notificationGranted = false;
   bool _telecomEnabled = false;
   bool _batteryBypassGranted = false;
   
@@ -54,6 +55,7 @@ class _PermissionsFirewallState extends State<PermissionsFirewall> with WidgetsB
           _micGranted = true;
           _contactsGranted = true;
           _alarmsGranted = true;
+          _notificationGranted = true;
           _telecomEnabled = true;
           _batteryBypassGranted = true;
           _ttsAvailable = true;
@@ -66,11 +68,10 @@ class _PermissionsFirewallState extends State<PermissionsFirewall> with WidgetsB
       return;
     }
 
-    await Permission.notification.request();
-
     final mic = await Permission.microphone.isGranted;
     final contacts = await Permission.contacts.isGranted;
     final alarms = await Permission.scheduleExactAlarm.isGranted;
+    final notification = await Permission.notification.isGranted;
     final telecom = await TelecomService.isPhoneAccountEnabled();
     final battery = await Permission.ignoreBatteryOptimizations.isGranted;
 
@@ -91,6 +92,7 @@ class _PermissionsFirewallState extends State<PermissionsFirewall> with WidgetsB
         _micGranted = mic;
         _contactsGranted = contacts;
         _alarmsGranted = alarms;
+        _notificationGranted = notification;
         _telecomEnabled = telecom;
         _batteryBypassGranted = battery;
         _ttsAvailable = hasTTS;
@@ -106,6 +108,7 @@ class _PermissionsFirewallState extends State<PermissionsFirewall> with WidgetsB
 
   bool get _allClear => 
     _micGranted && _contactsGranted && _alarmsGranted && 
+    _notificationGranted &&
     _telecomEnabled && _batteryBypassGranted && 
     _ttsAvailable && _sttAvailable;
 
@@ -144,6 +147,17 @@ class _PermissionsFirewallState extends State<PermissionsFirewall> with WidgetsB
                       await Permission.scheduleExactAlarm.request();
                       _checkPermissions();
                     }),
+
+                    _buildRow(
+                      'Notifications',
+                      _notificationGranted,
+                      () async {
+                        await Permission.notification.request();
+                        _checkPermissions();
+                      },
+                      icon: Icons.notifications_active_outlined,
+                      subtitle: 'Required for persistent assistant and task reminders.',
+                    ),
                     
                     _buildRow('Telecom Calling Account', _telecomEnabled, TelecomService.openTelecomSettings, subtitle: 'Enable "Carpe Diem" switch in Calling Accounts'),
                     
@@ -209,7 +223,13 @@ class _PermissionsFirewallState extends State<PermissionsFirewall> with WidgetsB
     );
   }
 
-  Widget _buildRow(String title, bool isMet, VoidCallback onFix, {String? subtitle}) {
+  Widget _buildRow(
+    String title,
+    bool isMet,
+    VoidCallback onFix, {
+    IconData? icon,
+    String? subtitle,
+  }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -220,7 +240,14 @@ class _PermissionsFirewallState extends State<PermissionsFirewall> with WidgetsB
       ),
       child: Row(
         children: [
-          Icon(isMet ? Icons.check_circle_rounded : Icons.radio_button_unchecked, color: isMet ? AppColors.success : AppColors.textMuted, size: 24),
+          Icon(
+            icon ??
+                (isMet
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked),
+            color: isMet ? AppColors.success : AppColors.textMuted,
+            size: 24,
+          ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
