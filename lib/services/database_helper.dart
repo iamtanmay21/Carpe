@@ -4,7 +4,6 @@ import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart'; // <-- ADDED: Fixes the 'Sqflite' getter error
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
-import 'package:path_provider/path_provider.dart';
 import '../data/models/task.dart'; // Ensure this points to your updated Task model
 
 class DatabaseHelper {
@@ -20,22 +19,29 @@ class DatabaseHelper {
   }
 
   Future<Database> _initDatabase() async {
-    String dbPath = 'carpe_diem.db';
     if (kIsWeb) {
       databaseFactory = databaseFactoryFfiWeb;
-    } else {
-      // 1. Optimize startup: Only invoke FFI on supported platforms to prevent long load times
-      if (io.Platform.isAndroid || io.Platform.isWindows || io.Platform.isLinux) {
-        sqfliteFfiInit();
-        databaseFactory = databaseFactoryFfi;
-      }
-      // 2. UNIFIED DB NAME: 'carpe_diem.db'
-      // This perfectly matches the Kotlin native alarm system and the UI expectations.
-      final io.Directory appDocDir = await getApplicationDocumentsDirectory();
-      dbPath = join(appDocDir.path, 'carpe_diem.db');
+      return databaseFactory.openDatabase(
+        'carpe_diem.db',
+        options: OpenDatabaseOptions(
+          version: 2,
+          onCreate: _onCreate,
+          onUpgrade: _onUpgrade,
+        ),
+      );
     }
 
-    return await databaseFactory.openDatabase(
+    if (io.Platform.isWindows || io.Platform.isLinux) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
+
+    // Android's native service uses context.getDatabasePath(), which resolves to
+    // this same standard application databases directory.
+    final dbDirectory = await getDatabasesPath();
+    final dbPath = join(dbDirectory, 'carpe_diem.db');
+
+    return databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
         version: 2,
