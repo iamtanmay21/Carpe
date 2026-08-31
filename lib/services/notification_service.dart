@@ -3,11 +3,15 @@ import 'dart:ui';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'assistant_executor.dart';
+import 'database_helper.dart';
+import '../data/models/task.dart';
 
 @pragma('vm:entry-point')
 void notificationTapBackground(NotificationResponse response) async {
   DartPluginRegistrant.ensureInitialized();
+  await DatabaseHelper.instance.database;
 
+  // Handle persistent text input without requiring the application UI to open.
   if (response.actionId == 'reply_action' && response.input != null) {
     final result =
         await AssistantExecutor.instance.executeVoiceCommand(response.input!);
@@ -26,6 +30,27 @@ void notificationTapBackground(NotificationResponse response) async {
       ),
     );
   }
+
+  // Handle task reminder actions without requiring the application UI to open.
+  final payload = response.payload;
+  if (payload != null && payload.startsWith('task_')) {
+    final taskId = payload.replaceFirst('task_', '');
+
+    if (response.actionId == 'mark_done') {
+      await DatabaseHelper.instance.updateTaskStatus(taskId, 'COMPLETED');
+    } else if (response.actionId == 'mark_missed') {
+      await DatabaseHelper.instance.updateTaskStatus(taskId, 'MISSED');
+    }
+
+    // Both task actions are terminal, so remove the reminder once processed.
+    if (response.id != null &&
+        (response.actionId == 'mark_done' ||
+            response.actionId == 'mark_missed')) {
+      final FlutterLocalNotificationsPlugin flnp =
+          FlutterLocalNotificationsPlugin();
+      await flnp.cancel(response.id!);
+    }
+  }
 }
 
 class NotificationService {
@@ -37,6 +62,7 @@ class NotificationService {
         AndroidInitializationSettings('@mipmap/ic_launcher');
     await _notifications.initialize(
       const InitializationSettings(android: initAndroid),
+      onDidReceiveNotificationResponse: notificationTapBackground,
       onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
     );
   }
@@ -67,6 +93,36 @@ class NotificationService {
       'Carpe Diem',
       'Assistant is ready',
       const NotificationDetails(android: androidDetails),
+    );
+  }
+
+  /// Shows the actionable notification delivered when a task reminder fires.
+  static Future<void> showTaskReminder(Task task) async {
+    const androidDetails = AndroidNotificationDetails(
+      'task_reminders',
+      'Task Reminders',
+      importance: Importance.max,
+      priority: Priority.max,
+      actions: <AndroidNotificationAction>[
+        AndroidNotificationAction(
+          'mark_done',
+          'Done',
+          showsUserInterface: false,
+        ),
+        AndroidNotificationAction(
+          'mark_missed',
+          'Missed',
+          showsUserInterface: false,
+        ),
+      ],
+    );
+
+    await _notifications.show(
+      task.id.hashCode,
+      'Task Reminder',
+      task.title,
+      const NotificationDetails(android: androidDetails),
+      payload: 'task_${task.id}',
     );
   }
 }
