@@ -52,9 +52,9 @@ class AssistantExecutor {
     // 2. Intent Routing & Execution
     switch (blueprint.intent) {
       
-      // ==========================================
+      // ------------------------------------------
       // CREATE
-      // ==========================================
+      // ------------------------------------------
       case CommandIntent.create:
         final title = blueprint.rawTextTarget ?? "Voice Task";
         final targetTime = _extractTargetTime(blueprint.slots) ?? ref.add(const Duration(hours: 1));
@@ -97,9 +97,9 @@ class AssistantExecutor {
           conflictingTasks: conflicts, requiresUserClarification: false,
         );
 
-      // ==========================================
+      // ------------------------------------------
       // QUERY
-      // ==========================================
+      // ------------------------------------------
       case CommandIntent.query:
         final range = _extractSourceRange(blueprint.slots) ?? DateTimeRange(start: ref, end: ref.add(const Duration(days: 1)));
         
@@ -119,9 +119,9 @@ class AssistantExecutor {
           affectedTasks: tasks, conflictingTasks: [], requiresUserClarification: false,
         );
 
-      // ==========================================
+      // ------------------------------------------
       // RESCHEDULE & DELETE
-      // ==========================================
+      // ------------------------------------------
       case CommandIntent.reschedule:
       case CommandIntent.deleteTask:
         List<Map<String, dynamic>> candidates = [];
@@ -217,9 +217,9 @@ class AssistantExecutor {
           affectedTasks: [targetTask], conflictingTasks: conflicts, requiresUserClarification: false,
         );
 
-      // ==========================================
+      // ------------------------------------------
       // BULK MOVE
-      // ==========================================
+      // ------------------------------------------
       case CommandIntent.bulkMove:
         final range = _extractSourceRange(blueprint.slots) ?? DateTimeRange(start: ref, end: ref.add(const Duration(days: 1)));
         final targetTime = _extractTargetTime(blueprint.slots) ?? ref.add(const Duration(days: 1));

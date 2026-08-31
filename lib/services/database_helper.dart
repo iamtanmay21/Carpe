@@ -96,9 +96,9 @@ class DatabaseHelper {
     ''');
   }
 
-  // =======================================================
+  // Section divider
   // UI CRUD METHODS (Fixes empty dashboard & manual creation)
-  // =======================================================
+  // Section divider
 
   Future<List<Task>> getAllTasks() async {
     final db = await database;
@@ -121,9 +121,9 @@ class DatabaseHelper {
     await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
   }
 
-  // =======================================================
+  // Section divider
   // DASHBOARD STATS METHODS
-  // =======================================================
+  // Section divider
 
   Future<int> getCompletedCount() async {
     final db = await database;
@@ -144,9 +144,9 @@ class DatabaseHelper {
     return total == 0 ? 0.0 : (completed / total) * 100;
   }
 
-  // =======================================================
+  // Section divider
   // VOICE ASSISTANT FTS5 ENGINE
-  // =======================================================
+  // Section divider
 
   Future<List<String>> searchTaskIdsByFts(String query) async {
     final db = await database;

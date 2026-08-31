@@ -1,5 +1,10 @@
+ codex/implement-background-direct-reply-notification-ea1755
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+ main
 
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
@@ -70,6 +75,11 @@
 
         <service
             android:name="id.flutter.flutter_background_service.BackgroundService"
+ codex/implement-background-direct-reply-notification-ea1755
+            android:exported="true"
+            android:foregroundServiceType="dataSync">
+        </service>
+
  codex/implement-background-direct-reply-notification-sqzgbw
             android:exported="true"
             android:foregroundServiceType="dataSync" />
@@ -81,7 +91,8 @@
 
             android:foregroundServiceType="dataSync" />
  main
->>> main
+ main
+ main
 
         <service
             android:name=".QuickCaptureTileService"
