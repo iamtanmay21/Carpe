@@ -18,7 +18,7 @@ class CarpeBootReceiver : BroadcastReceiver() {
             if (dbFile.exists()) {
                 val db = SQLiteDatabase.openDatabase(dbFile.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
                 // Fetch both pending AND snoozed tasks
-                val cursor = db.rawQuery("SELECT id, title, contact_name, contact_number, audio_path, due_timestamp FROM tasks WHERE status = 'PENDING' OR status = 'SNOOZED'", null)
+                val cursor = db.rawQuery("SELECT id, title, contact_name, contact_number, audio_path, due_date FROM tasks WHERE status = 'PENDING' OR status = 'SNOOZED'", null)
                 
                 val now = System.currentTimeMillis()
                 while (cursor.moveToNext()) {
