@@ -23,10 +23,16 @@ class CarpeConnectionService : ConnectionService() {
         request: ConnectionRequest?
     ): Connection {
         val bundle = request?.extras
-        val name = bundle?.getString("EXTRA_CALLER_NAME") ?: "Carpe Diem"
+        val telecomExtras = bundle?.getBundle(TelecomManager.EXTRA_INCOMING_CALL_EXTRAS)
+        val name = telecomExtras?.getString("EXTRA_CALLER_NAME")
+            ?: bundle?.getString("EXTRA_CALLER_NAME")
+            ?: "Carpe Diem"
         val numberUri = bundle?.getParcelable<Uri>(TelecomManager.EXTRA_INCOMING_CALL_ADDRESS)
-        val taskId = bundle?.getString("EXTRA_TASK_ID") ?: ""
-        val audioPath = bundle?.getString("EXTRA_AUDIO_PATH")
+        val taskId = telecomExtras?.getString("EXTRA_TASK_ID")
+            ?: bundle?.getString("EXTRA_TASK_ID")
+            ?: ""
+        val audioPath = telecomExtras?.getString("EXTRA_AUDIO_PATH")
+            ?: bundle?.getString("EXTRA_AUDIO_PATH")
 
         val connection = CarpeConnection(applicationContext, taskId, name, audioPath)
         connection.setAddress(numberUri, TelecomManager.PRESENTATION_ALLOWED)
@@ -236,14 +242,17 @@ class CarpeConnection(
     private fun updateTaskStatusInDatabase(status: String) {
         if (taskId.isEmpty()) return
         try {
-            // Target Flutter's getApplicationDocumentsDirectory exactly
-            val appFlutterDir = java.io.File(context.applicationInfo.dataDir, "app_flutter")
+            val appFlutterDir = context.getDir("flutter", Context.MODE_PRIVATE)
             val dbFile = java.io.File(appFlutterDir, "carpe_diem.db")
 
-            if (dbFile.exists()) {
-                val db = SQLiteDatabase.openDatabase(dbFile.absolutePath, null, SQLiteDatabase.OPEN_READWRITE)
+            if (!dbFile.exists()) return
+
+            SQLiteDatabase.openDatabase(
+                dbFile.absolutePath,
+                null,
+                SQLiteDatabase.OPEN_READWRITE or SQLiteDatabase.ENABLE_WRITE_AHEAD_LOGGING
+            ).use { db ->
                 db.execSQL("UPDATE tasks SET status = ? WHERE id = ?", arrayOf(status, taskId))
-                db.close()
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -253,18 +262,25 @@ class CarpeConnection(
     private fun snoozeTaskInDatabase(newTimestamp: Long) {
         if (taskId.isEmpty()) return
         try {
-            val appFlutterDir = java.io.File(context.applicationInfo.dataDir, "app_flutter")
+            val appFlutterDir = context.getDir("flutter", Context.MODE_PRIVATE)
             val dbFile = java.io.File(appFlutterDir, "carpe_diem.db")
 
-            if (dbFile.exists()) {
-                val db = SQLiteDatabase.openDatabase(dbFile.absolutePath, null, SQLiteDatabase.OPEN_READWRITE)
-                // FIXED: Changed due_timestamp to due_date and status to PENDING
-                db.execSQL("UPDATE tasks SET status = 'PENDING', due_date = ? WHERE id = ?", arrayOf(newTimestamp, taskId))
-                db.close()
+            if (!dbFile.exists()) return
 
-                // Securely re-arm the alarm only after the database write succeeds
-                CallManager.scheduleNativeAlarm(context, taskId, name, "Reminder", audioPath, newTimestamp)
+            SQLiteDatabase.openDatabase(
+                dbFile.absolutePath,
+                null,
+                SQLiteDatabase.OPEN_READWRITE or SQLiteDatabase.ENABLE_WRITE_AHEAD_LOGGING
+            ).use { db ->
+                // FIXED: Changed due_timestamp to due_date and status to PENDING
+                db.execSQL(
+                    "UPDATE tasks SET due_date = ?, status = 'PENDING' WHERE id = ?",
+                    arrayOf(newTimestamp, taskId)
+                )
             }
+
+            // Securely re-arm the alarm only after the database write succeeds
+            CallManager.scheduleNativeAlarm(context, taskId, name, "Reminder", audioPath, newTimestamp)
         } catch (e: Exception) {
             e.printStackTrace()
         }
