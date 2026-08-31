@@ -71,8 +71,12 @@
         <service
             android:name="id.flutter.flutter_background_service.BackgroundService"
             android:exported="false"
+ codex/implement-background-direct-reply-notification-etnkgb
             android:foregroundServiceType="dataSync"
             tools:replace="android:exported" />
+
+            android:foregroundServiceType="dataSync" />
+ main
 
         <service
             android:name=".QuickCaptureTileService"
