@@ -178,7 +178,6 @@ class CarpeConnection(
                 if (minutes > 0) {
                     val newTimeMs = System.currentTimeMillis() + (minutes * 60 * 1000)
                     snoozeTaskInDatabase(newTimeMs)
-                    CallManager.scheduleNativeAlarm(context, taskId, name, "Reminder", audioPath, newTimeMs)
                     
                     speak("Snoozed for $snoozeInput minutes.")
                     Handler(Looper.getMainLooper()).postDelayed({ endCall() }, 2500)
@@ -211,6 +210,7 @@ class CarpeConnection(
 
     override fun onAbort() {
         super.onAbort()
+        updateTaskStatusInDatabase("MISSED")
         setDisconnected(DisconnectCause(DisconnectCause.CANCELED))
         destroyConnection()
     }
@@ -237,9 +237,11 @@ class CarpeConnection(
     private fun updateTaskStatusInDatabase(status: String) {
         if (taskId.isEmpty()) return
         try {
-            val dbFile = context.getDatabasePath("carpe_diem.db")
+            val appFlutterDir = java.io.File(context.applicationInfo.dataDir, "app_flutter")
+            val dbFile = java.io.File(appFlutterDir, "carpe_diem.db")
+
             if (dbFile.exists()) {
-                val db = SQLiteDatabase.openDatabase(dbFile.absolutePath, null, SQLiteDatabase.OPEN_READWRITE)
+                val db = android.database.sqlite.SQLiteDatabase.openDatabase(dbFile.absolutePath, null, android.database.sqlite.SQLiteDatabase.OPEN_READWRITE)
                 db.execSQL("UPDATE tasks SET status = ? WHERE id = ?", arrayOf(status, taskId))
                 db.close()
             }
@@ -247,15 +249,20 @@ class CarpeConnection(
             e.printStackTrace()
         }
     }
-    
+
     private fun snoozeTaskInDatabase(newTimestamp: Long) {
         if (taskId.isEmpty()) return
         try {
-            val dbFile = context.getDatabasePath("carpe_diem.db")
+            val appFlutterDir = java.io.File(context.applicationInfo.dataDir, "app_flutter")
+            val dbFile = java.io.File(appFlutterDir, "carpe_diem.db")
+
             if (dbFile.exists()) {
-                val db = SQLiteDatabase.openDatabase(dbFile.absolutePath, null, SQLiteDatabase.OPEN_READWRITE)
-                db.execSQL("UPDATE tasks SET status = 'SNOOZED', due_timestamp = ? WHERE id = ?", arrayOf(newTimestamp, taskId))
+                val db = android.database.sqlite.SQLiteDatabase.openDatabase(dbFile.absolutePath, null, android.database.sqlite.SQLiteDatabase.OPEN_READWRITE)
+                db.execSQL("UPDATE tasks SET status = 'PENDING', due_date = ? WHERE id = ?", arrayOf(newTimestamp, taskId))
                 db.close()
+
+                // Re-arm the native alarm
+                CallManager.scheduleNativeAlarm(context, taskId, name, "Reminder", audioPath, newTimestamp)
             }
         } catch (e: Exception) {
             e.printStackTrace()
