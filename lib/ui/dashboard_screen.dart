@@ -445,18 +445,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                       onPressed: () async {
-                        // Update Logic Here
-                        await DatabaseHelper.instance.database.then((db) => db.update(
-                          'tasks',
-                          {
-                            'title': editTitle,
-                            'due_date': editDate.millisecondsSinceEpoch,
-                            'is_non_priority': editNonPriority ? 1 : 0,
-                            'contact_number': editContact,
-                            'voice_note_path': editVoiceNote,
-                          },
-                          where: 'id = ?', whereArgs: [task.id]
-                        ));
+                        final now = DateTime.now();
+                        final isPast = editDate.isBefore(now);
+                        final newStatus = isPast ? 'MISSED' : 'PENDING';
+
+                        await DatabaseHelper.instance.database.then(
+                          (db) => db.update(
+                            'tasks',
+                            {
+                              'title': editTitle,
+                              'due_date': editDate.millisecondsSinceEpoch,
+                              'is_non_priority': editNonPriority ? 1 : 0,
+                              'contact_number': editContact,
+                              'voice_note_path': editVoiceNote,
+                              'status': newStatus,
+                            },
+                            where: 'id = ?',
+                            whereArgs: [task.id],
+                          ),
+                        );
+
+                        // Android fires alarms immediately for past timestamps.
+                        if (!isPast && !editNonPriority) {
+                          final updatedTask = Task(
+                            id: task.id,
+                            title: editTitle,
+                            originalTranscript: task.originalTranscript,
+                            dueTimestamp: editDate.millisecondsSinceEpoch,
+                            status: TaskStatusEnum.pending,
+                            audioPath: task.audioPath,
+                            routineDays: task.routineDays,
+                            contactName: task.contactName,
+                            contactNumber: editContact,
+                            voiceNotePath: editVoiceNote,
+                            isAllDay: task.isAllDay,
+                            timeBlockBucket: task.timeBlockBucket,
+                          );
+                          await TelecomService.scheduleNativeAlarm(updatedTask);
+                        } else {
+                          await TelecomService.cancelNativeAlarm(task.id);
+                        }
+
                         await _loadTasks();
                         if (context.mounted) Navigator.pop(context);
                       },

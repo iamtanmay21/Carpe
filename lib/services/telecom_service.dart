@@ -6,6 +6,11 @@ class TelecomService {
   static const MethodChannel _channel = MethodChannel('com.local.carpe/telecom');
 
   static Future<void> scheduleNativeAlarm(Task task) async {
+    // Never hand Android a past timestamp, which AlarmManager fires immediately.
+    if (task.dueDateTime.isBefore(DateTime.now()) || task.isNonPriority) {
+      return;
+    }
+
     if (kIsWeb) return;
     try {
       await _channel.invokeMethod('scheduleAlarm', {
