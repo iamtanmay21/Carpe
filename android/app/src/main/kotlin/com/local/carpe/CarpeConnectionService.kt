@@ -211,6 +211,7 @@ class CarpeConnection(
 
     override fun onAbort() {
         super.onAbort()
+        updateTaskStatusInDatabase("MISSED")
         setDisconnected(DisconnectCause(DisconnectCause.CANCELED))
         destroyConnection()
     }
@@ -238,10 +239,14 @@ class CarpeConnection(
         if (taskId.isEmpty()) return
         try {
             val dbFile = context.getDatabasePath("carpe_diem.db")
-            if (dbFile.exists()) {
-                val db = SQLiteDatabase.openDatabase(dbFile.absolutePath, null, SQLiteDatabase.OPEN_READWRITE)
+            if (!dbFile.exists()) return
+
+            SQLiteDatabase.openDatabase(
+                dbFile.absolutePath,
+                null,
+                SQLiteDatabase.OPEN_READWRITE
+            ).use { db ->
                 db.execSQL("UPDATE tasks SET status = ? WHERE id = ?", arrayOf(status, taskId))
-                db.close()
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -252,10 +257,17 @@ class CarpeConnection(
         if (taskId.isEmpty()) return
         try {
             val dbFile = context.getDatabasePath("carpe_diem.db")
-            if (dbFile.exists()) {
-                val db = SQLiteDatabase.openDatabase(dbFile.absolutePath, null, SQLiteDatabase.OPEN_READWRITE)
-                db.execSQL("UPDATE tasks SET status = 'SNOOZED', due_timestamp = ? WHERE id = ?", arrayOf(newTimestamp, taskId))
-                db.close()
+            if (!dbFile.exists()) return
+
+            SQLiteDatabase.openDatabase(
+                dbFile.absolutePath,
+                null,
+                SQLiteDatabase.OPEN_READWRITE
+            ).use { db ->
+                db.execSQL(
+                    "UPDATE tasks SET due_date = ?, status = 'PENDING' WHERE id = ?",
+                    arrayOf(newTimestamp, taskId)
+                )
             }
         } catch (e: Exception) {
             e.printStackTrace()
