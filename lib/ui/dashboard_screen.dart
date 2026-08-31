@@ -109,7 +109,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _loadTasks() async {
-    final tasks = await DatabaseHelper.instance.getAllTasks();
+    final now = DateTime.now();
+    var tasks = await DatabaseHelper.instance.getAllTasks();
+
+    // Sweep and auto-expire pending tasks whose due time has passed.
+    bool needsRefresh = false;
+    for (final task in tasks) {
+      if (task.status == TaskStatusEnum.pending &&
+          task.dueDateTime.isBefore(now)) {
+        await DatabaseHelper.instance.updateTaskStatus(task.id, 'MISSED');
+        needsRefresh = true;
+      }
+    }
+
+    // Reload so the UI and summary counts use the persisted statuses.
+    if (needsRefresh) {
+      tasks = await DatabaseHelper.instance.getAllTasks();
+    }
     
     // Sort tasks chronologically for the timeline
     tasks.sort((a, b) => a.dueDateTime.compareTo(b.dueDateTime));
