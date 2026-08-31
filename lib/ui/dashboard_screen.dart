@@ -5,6 +5,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
 
 import '../core/theme.dart';
 import 'package:carpediem/services/database_helper.dart';
@@ -224,7 +228,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _showEditTaskSheet(Task task) {
     String editTitle = task.title;
     DateTime editDate = task.dueDateTime;
-    TaskStatusEnum editStatus = task.status;
+    bool editNonPriority = task.isNonPriority;
+    String editContact = task.contactNumber ?? "";
+    String editVoiceNote = task.voiceNotePath ?? "";
 
     showModalBottomSheet(
       context: context,
@@ -308,6 +314,105 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    "Notification Only (No Call)",
+                    style: GoogleFonts.inter(
+                      color: AppColors.text,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  subtitle: Text(
+                    "Disables native alarm ring and TTS",
+                    style: GoogleFonts.inter(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                  value: editNonPriority,
+                  activeColor: AppColors.accent,
+                  onChanged: (val) =>
+                      setSheetState(() => editNonPriority = val),
+                ),
+                const SizedBox(height: 16),
+                Opacity(
+                  opacity: editNonPriority ? 0.4 : 1.0,
+                  child: IgnorePointer(
+                    ignoring: editNonPriority,
+                    child: Column(
+                      children: [
+                        InkWell(
+                          onTap: () async {
+                            final contact = await _pickEditContact();
+                            if (contact != null && context.mounted) {
+                              setSheetState(() => editContact = contact);
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.background,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.divider),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.phone_outlined,
+                                  size: 18,
+                                  color: AppColors.accent,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  editContact.isEmpty
+                                      ? "Select Caller ID..."
+                                      : editContact,
+                                  style: GoogleFonts.inter(color: AppColors.text),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        InkWell(
+                          onTap: () async {
+                            final voiceNote =
+                                await _recordEditVoiceNote(context);
+                            if (voiceNote != null && context.mounted) {
+                              setSheetState(() => editVoiceNote = voiceNote);
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.background,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.divider),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.mic_none_outlined,
+                                  size: 18,
+                                  color: AppColors.accent,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  editVoiceNote.isEmpty
+                                      ? "Record Audio Override..."
+                                      : "Audio Recorded",
+                                  style: GoogleFonts.inter(color: AppColors.text),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 24),
 
                 // Actions
@@ -327,7 +432,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         // Update Logic Here
                         await DatabaseHelper.instance.database.then((db) => db.update(
                           'tasks',
-                          {'title': editTitle, 'due_date': editDate.millisecondsSinceEpoch},
+                          {
+                            'title': editTitle,
+                            'due_date': editDate.millisecondsSinceEpoch,
+                            'is_non_priority': editNonPriority ? 1 : 0,
+                            'contact_number': editContact,
+                            'voice_note_path': editVoiceNote,
+                          },
                           where: 'id = ?', whereArgs: [task.id]
                         ));
                         await _loadTasks();
@@ -343,6 +454,89 @@ class _DashboardScreenState extends State<DashboardScreen> {
         },
       ),
     );
+  }
+
+  Future<String?> _pickEditContact() async {
+    if (!await FlutterContacts.requestPermission(readonly: true)) {
+      return null;
+    }
+
+    final contact = await FlutterContacts.openExternalPick();
+    if (contact == null) return null;
+
+    final fullContact = await FlutterContacts.getContact(contact.id);
+    if (fullContact == null || fullContact.phones.isEmpty) return null;
+
+    return fullContact.phones.first.number;
+  }
+
+  Future<String?> _recordEditVoiceNote(BuildContext sheetContext) async {
+    final recorder = AudioRecorder();
+    String? recordingPath;
+    bool isRecording = false;
+
+    final savedPath = await showModalBottomSheet<String>(
+      context: sheetContext,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setRecordingState) => Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                isRecording ? 'Recording audio override...' : 'Record Audio Override',
+                style: GoogleFonts.outfit(
+                  color: AppColors.text,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              IconButton(
+                iconSize: 48,
+                color: isRecording ? AppColors.error : AppColors.accent,
+                icon: Icon(isRecording ? Icons.stop_circle_outlined : Icons.mic),
+                onPressed: () async {
+                  if (isRecording) {
+                    recordingPath = await recorder.stop();
+                    setRecordingState(() => isRecording = false);
+                    return;
+                  }
+
+                  if (await recorder.hasPermission()) {
+                    final directory = await getApplicationDocumentsDirectory();
+                    final path = p.join(
+                      directory.path,
+                      'audio_${DateTime.now().millisecondsSinceEpoch}.m4a',
+                    );
+                    await recorder.start(
+                      const RecordConfig(encoder: AudioEncoder.aacLc),
+                      path: path,
+                    );
+                    setRecordingState(() => isRecording = true);
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: isRecording || recordingPath == null
+                    ? null
+                    : () => Navigator.pop(context, recordingPath),
+                child: const Text('Use Recording'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (isRecording) await recorder.stop();
+    await recorder.dispose();
+    return savedPath;
   }
 
   @override
