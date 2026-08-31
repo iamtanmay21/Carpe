@@ -178,7 +178,6 @@ class CarpeConnection(
                 if (minutes > 0) {
                     val newTimeMs = System.currentTimeMillis() + (minutes * 60 * 1000)
                     snoozeTaskInDatabase(newTimeMs)
-                    CallManager.scheduleNativeAlarm(context, taskId, name, "Reminder", audioPath, newTimeMs)
                     
                     speak("Snoozed for $snoozeInput minutes.")
                     Handler(Looper.getMainLooper()).postDelayed({ endCall() }, 2500)
@@ -237,7 +236,10 @@ class CarpeConnection(
     private fun updateTaskStatusInDatabase(status: String) {
         if (taskId.isEmpty()) return
         try {
-            val dbFile = context.getDatabasePath("carpe_diem.db")
+            // Target Flutter's getApplicationDocumentsDirectory exactly
+            val appFlutterDir = java.io.File(context.applicationInfo.dataDir, "app_flutter")
+            val dbFile = java.io.File(appFlutterDir, "carpe_diem.db")
+
             if (dbFile.exists()) {
                 val db = SQLiteDatabase.openDatabase(dbFile.absolutePath, null, SQLiteDatabase.OPEN_READWRITE)
                 db.execSQL("UPDATE tasks SET status = ? WHERE id = ?", arrayOf(status, taskId))
@@ -251,11 +253,17 @@ class CarpeConnection(
     private fun snoozeTaskInDatabase(newTimestamp: Long) {
         if (taskId.isEmpty()) return
         try {
-            val dbFile = context.getDatabasePath("carpe_diem.db")
+            val appFlutterDir = java.io.File(context.applicationInfo.dataDir, "app_flutter")
+            val dbFile = java.io.File(appFlutterDir, "carpe_diem.db")
+
             if (dbFile.exists()) {
                 val db = SQLiteDatabase.openDatabase(dbFile.absolutePath, null, SQLiteDatabase.OPEN_READWRITE)
-                db.execSQL("UPDATE tasks SET status = 'SNOOZED', due_timestamp = ? WHERE id = ?", arrayOf(newTimestamp, taskId))
+                // FIXED: Changed due_timestamp to due_date and status to PENDING
+                db.execSQL("UPDATE tasks SET status = 'PENDING', due_date = ? WHERE id = ?", arrayOf(newTimestamp, taskId))
                 db.close()
+
+                // Securely re-arm the alarm only after the database write succeeds
+                CallManager.scheduleNativeAlarm(context, taskId, name, "Reminder", audioPath, newTimestamp)
             }
         } catch (e: Exception) {
             e.printStackTrace()
