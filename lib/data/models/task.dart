@@ -95,14 +95,21 @@ class Task {
 
   // Required by database_helper.dart for reading tasks
   factory Task.fromMap(Map<String, dynamic> map) {
-    // Safely parse status string back to enum
-    TaskStatusEnum parsedStatus = TaskStatusEnum.pending;
-    if (map['status'] != null) {
-      final statusStr = map['status'].toString().toLowerCase();
-      parsedStatus = TaskStatusEnum.values.firstWhere(
-        (e) => e.name == statusStr,
-        orElse: () => TaskStatusEnum.pending,
-      );
+    // Native SQLite writes use these exact uppercase values.
+    final TaskStatusEnum parsedStatus;
+    switch (map['status']?.toString()) {
+      case 'COMPLETED':
+        parsedStatus = TaskStatusEnum.completed;
+      case 'MISSED':
+        parsedStatus = TaskStatusEnum.missed;
+      case 'PENDING':
+        parsedStatus = TaskStatusEnum.pending;
+      case 'SNOOZED':
+        parsedStatus = TaskStatusEnum.snoozed;
+      case 'ACCEPTED':
+        parsedStatus = TaskStatusEnum.accepted;
+      default:
+        parsedStatus = TaskStatusEnum.pending;
     }
 
     return Task(
