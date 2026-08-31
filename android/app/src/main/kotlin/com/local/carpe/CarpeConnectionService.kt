@@ -237,7 +237,14 @@ class CarpeConnection(
     private fun updateTaskStatusInDatabase(status: String) {
         if (taskId.isEmpty()) return
         try {
- codex/unify-sqlite-database-path-and-fix-dtmf-updates-z5zpjf
+ unify-sqlite-database-path-and-fix-dtmf-updates-q9c8ns
+            val appFlutterDir = java.io.File(context.applicationInfo.dataDir, "app_flutter")
+            val dbFile = java.io.File(appFlutterDir, "carpe_diem.db")
+
+            if (dbFile.exists()) {
+                val db = android.database.sqlite.SQLiteDatabase.openDatabase(dbFile.absolutePath, null, android.database.sqlite.SQLiteDatabase.OPEN_READWRITE)
+
+ unify-sqlite-database-path-and-fix-dtmf-updates-z5zpjf
             // Point exactly to where Flutter's path_provider stores the database.
             val appFlutterDir = java.io.File(context.applicationInfo.dataDir, "app_flutter")
             val dbFile = java.io.File(appFlutterDir, "carpe_diem.db")
@@ -251,16 +258,29 @@ class CarpeConnection(
                 null,
                 SQLiteDatabase.OPEN_READWRITE
             ).use { db ->
+ main
                 db.execSQL("UPDATE tasks SET status = ? WHERE id = ?", arrayOf(status, taskId))
             }
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
-    
+
     private fun snoozeTaskInDatabase(newTimestamp: Long) {
         if (taskId.isEmpty()) return
         try {
+ codex/unify-sqlite-database-path-and-fix-dtmf-updates-q9c8ns
+            val appFlutterDir = java.io.File(context.applicationInfo.dataDir, "app_flutter")
+            val dbFile = java.io.File(appFlutterDir, "carpe_diem.db")
+
+            if (dbFile.exists()) {
+                val db = android.database.sqlite.SQLiteDatabase.openDatabase(dbFile.absolutePath, null, android.database.sqlite.SQLiteDatabase.OPEN_READWRITE)
+                db.execSQL("UPDATE tasks SET status = 'PENDING', due_date = ? WHERE id = ?", arrayOf(newTimestamp, taskId))
+                db.close()
+
+                // Re-arm the native alarm
+                CallManager.scheduleNativeAlarm(context, taskId, name, "Reminder", audioPath, newTimestamp)
+
  codex/unify-sqlite-database-path-and-fix-dtmf-updates-z5zpjf
             // Point exactly to where Flutter's path_provider stores the database.
             val appFlutterDir = java.io.File(context.applicationInfo.dataDir, "app_flutter")
@@ -292,6 +312,7 @@ class CarpeConnection(
                     "UPDATE tasks SET status = 'SNOOZED', due_date = ? WHERE id = ?",
                     arrayOf(newTimestamp, taskId)
                 )
+ main
  main
             }
         } catch (e: Exception) {
