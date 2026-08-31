@@ -38,8 +38,9 @@ class DatabaseHelper {
     return await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 1,
+        version: 2,
         onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
       ),
     );
   }
@@ -57,7 +58,9 @@ class DatabaseHelper {
         audioPath TEXT,
         routineDays TEXT,
         contactName TEXT,
-        contactNumber TEXT,
+        contact_number TEXT,
+        voice_note_path TEXT,
+        is_non_priority INTEGER DEFAULT 0,
         originalTranscript TEXT
       )
     ''');
@@ -94,6 +97,20 @@ class DatabaseHelper {
         INSERT INTO tasks_fts(rowid, title) VALUES (new.rowid, new.title); 
       END;
     ''');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('ALTER TABLE tasks ADD COLUMN contact_number TEXT');
+      await db.execute('ALTER TABLE tasks ADD COLUMN voice_note_path TEXT');
+      await db.execute(
+        'ALTER TABLE tasks ADD COLUMN is_non_priority INTEGER DEFAULT 0',
+      );
+      await db.execute(
+        'UPDATE tasks SET contact_number = contactNumber '
+        'WHERE contact_number IS NULL',
+      );
+    }
   }
 
   // Section divider

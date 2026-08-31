@@ -151,6 +151,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     await _loadTasks();
   }
 
+  Future<void> _markPending(Task task) async {
+    await DatabaseHelper.instance.database.then(
+      (db) => db.update(
+        'tasks',
+        {'status': 'PENDING'},
+        where: 'id = ?',
+        whereArgs: [task.id],
+      ),
+    );
+    await TelecomService.scheduleNativeAlarm(task);
+    await _loadTasks();
+  }
+
   Future<void> _toggleMicOrSend() async {
     HapticFeedback.lightImpact();
     
@@ -450,7 +463,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             child: const Icon(Icons.circle_outlined, color: AppColors.textMuted, size: 22),
                           )
                         else
-                           const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 22),
+                          GestureDetector(
+                            onTap: () => _markPending(task),
+                            child: const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 22),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 6),
