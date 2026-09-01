@@ -77,7 +77,6 @@ class NotificationService {
       await androidImplementation.requestNotificationsPermission();
       await androidImplementation.requestExactAlarmsPermission();
 
-      // Register ALL required notification channels
       const AndroidNotificationChannel taskChannel = AndroidNotificationChannel(
         'task_reminders',
         'Task Reminders',
@@ -164,11 +163,9 @@ class NotificationService {
   }
 
   static Future<void> scheduleTaskReminder(Task task) async {
-    if (task.dueDate == null) return;
-    
     final scheduledDate = tz.TZDateTime.fromMillisecondsSinceEpoch(
       tz.local,
-      task.dueDate!,
+      task.dueTimestamp,
     );
 
     if (scheduledDate.isBefore(tz.TZDateTime.now(tz.local))) return;
