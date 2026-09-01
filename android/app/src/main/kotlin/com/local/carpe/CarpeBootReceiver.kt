@@ -5,20 +5,32 @@ import android.content.Context
 import android.content.Intent
 import android.database.sqlite.SQLiteDatabase
 import android.util.Log
+import java.io.File
 
 class CarpeBootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         Log.d("CarpeBootReceiver", "Device booted or app updated. Action: ${intent.action}")
         
-        // Re-register Telecom Account instantly on boot
         CallManager.registerAccount(context)
 
         try {
-            val dbFile = context.getDatabasePath("carpe_diem.db")
+            // FIX 1: Point strictly to the Flutter FFI database directory
+            val appFlutterDir = context.getDir("flutter", Context.MODE_PRIVATE)
+            val dbFile = File(appFlutterDir, "carpe_diem.db")
+            
             if (dbFile.exists()) {
-                val db = SQLiteDatabase.openDatabase(dbFile.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
-                // Fetch both pending AND snoozed tasks
-                val cursor = db.rawQuery("SELECT id, title, contact_name, contact_number, audio_path, due_timestamp FROM tasks WHERE status = 'PENDING' OR status = 'SNOOZED'", null)
+                // FIX 2: Enable WAL to prevent locking against the Flutter engine
+                val db = SQLiteDatabase.openDatabase(
+                    dbFile.absolutePath, 
+                    null, 
+                    SQLiteDatabase.OPEN_READWRITE or SQLiteDatabase.ENABLE_WRITE_AHEAD_LOGGING
+                )
+                
+                // FIX 3: Query using the correct Flutter SQLite schema column names
+                val cursor = db.rawQuery(
+                    "SELECT id, title, contactName, contact_number, audioPath, due_date FROM tasks WHERE status = 'PENDING'", 
+                    null
+                )
                 
                 val now = System.currentTimeMillis()
                 while (cursor.moveToNext()) {
@@ -29,7 +41,6 @@ class CarpeBootReceiver : BroadcastReceiver() {
                     val audioPath = cursor.getString(4)
                     val timestamp = cursor.getLong(5)
                     
-                    // If the phone was off when the alarm was supposed to go off, ring it 30 seconds after booting
                     val scheduleTime = if (timestamp < now) now + 30000 else timestamp
                     
                     CallManager.scheduleNativeAlarm(context, id, name, number, audioPath, scheduleTime)
