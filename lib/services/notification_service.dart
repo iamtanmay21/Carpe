@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'assistant_executor.dart';
@@ -58,13 +59,55 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   static Future<void> initialize() async {
-    const AndroidInitializationSettings initAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    await _notifications.initialize(
-      const InitializationSettings(android: initAndroid),
-      onDidReceiveNotificationResponse: notificationTapBackground,
-      onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
-    );
+    try {
+      // Use the launcher icon until a dedicated transparent notification icon
+      // is added under android/app/src/main/res/drawable/.
+      const AndroidInitializationSettings androidInitializationSettings =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
+      const InitializationSettings initializationSettings =
+          InitializationSettings(android: androidInitializationSettings);
+
+      await _notifications.initialize(
+        initializationSettings,
+        onDidReceiveNotificationResponse: notificationTapBackground,
+        onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
+      );
+
+      final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
+          _notifications.resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+
+      if (androidImplementation == null) {
+        return;
+      }
+
+      // Android 13+ requires notification permission at runtime. Exact-alarm
+      // permission is required for time-sensitive scheduled task reminders.
+      await androidImplementation.requestNotificationsPermission();
+      await androidImplementation.requestExactAlarmsPermission();
+
+      const AndroidNotificationChannel taskChannel = AndroidNotificationChannel(
+        'task_reminders',
+        'Task Reminders',
+        description: 'High priority alerts for task deadlines.',
+        importance: Importance.max,
+        playSound: true,
+        enableVibration: true,
+      );
+      const AndroidNotificationChannel feedbackChannel =
+          AndroidNotificationChannel(
+        'feedback_channel',
+        'Assistant Feedback',
+        description: 'Persistent background assistant.',
+        importance: Importance.high,
+      );
+
+      await androidImplementation.createNotificationChannel(taskChannel);
+      await androidImplementation.createNotificationChannel(feedbackChannel);
+    } catch (error, stackTrace) {
+      debugPrint('Notification initialization failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   static Future<void> showPersistentInputNotification() async {
