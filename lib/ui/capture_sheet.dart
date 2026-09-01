@@ -12,6 +12,7 @@ import 'package:carpediem/services/database_helper.dart';
 import '../data/models/task.dart';
 import '../services/nlp_parser.dart';
 import '../services/alarm_service.dart';
+import '../services/notification_service.dart';
 
 class CaptureSheet extends StatefulWidget {
   const CaptureSheet({super.key});
@@ -153,6 +154,7 @@ class _CaptureSheetState extends State<CaptureSheet> with SingleTickerProviderSt
 
       await DatabaseHelper.instance.insertTask(createdTask);
       await AlarmService.instance.scheduleAlarm(createdTask);
+      await NotificationService.scheduleTaskReminder(createdTask);
 
       if (mounted) Navigator.pop(context, true);
     } catch (_) {
