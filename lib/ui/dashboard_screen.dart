@@ -28,7 +28,8 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+// 1. ADDED: WidgetsBindingObserver to detect when the app returns from the call screen
+class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingObserver {
   List<Task> _tasks = [];
   bool _loading = true;
   String _selectedTab = 'ALL';
@@ -50,6 +51,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    // 2. ADDED: Register the lifecycle observer
+    WidgetsBinding.instance.addObserver(this);
     _loadTasks();
     _initTTS();
     
@@ -63,12 +66,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   void dispose() {
+    // 3. ADDED: Remove the lifecycle observer
+    WidgetsBinding.instance.removeObserver(this);
     _voiceController.removeListener(_onVoiceStateChanged);
     _voiceController.dispose();
     _tts.stop();
     _transcriptEditController.dispose();
     _transcriptFocusNode.dispose();
     super.dispose();
+  }
+
+  // 4. ADDED: Refresh database when app comes to foreground after Telecom call ends
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadTasks(); 
+    }
   }
 
   void _onVoiceStateChanged() {
@@ -110,24 +123,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _loadTasks() async {
     final now = DateTime.now();
+    
+    // 5. THE FIX: 3-Minute Grace Period. Do not mark MISSED if it is currently ringing.
+    final expiredThreshold = now.subtract(const Duration(minutes: 3));
+    
     var tasks = await DatabaseHelper.instance.getAllTasks();
 
-    // Sweep and auto-expire pending tasks whose due time has passed.
     bool needsRefresh = false;
     for (final task in tasks) {
+      // Check against the threshold instead of exact 'now'
       if (task.status == TaskStatusEnum.pending &&
-          task.dueDateTime.isBefore(now)) {
+          task.dueDateTime.isBefore(expiredThreshold)) {
         await DatabaseHelper.instance.updateTaskStatus(task.id, 'MISSED');
         needsRefresh = true;
       }
     }
 
-    // Reload so the UI and summary counts use the persisted statuses.
     if (needsRefresh) {
       tasks = await DatabaseHelper.instance.getAllTasks();
     }
     
-    // Sort tasks chronologically for the timeline
     tasks.sort((a, b) => a.dueDateTime.compareTo(b.dueDateTime));
     
     final completed = tasks.where((t) => t.status == TaskStatusEnum.completed).length;
@@ -240,7 +255,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // --- EDIT TASK SHEET ---
   void _showEditTaskSheet(Task task) {
     String editTitle = task.title;
     DateTime editDate = task.dueDateTime;
@@ -267,7 +281,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Text("Edit Task", style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.text)),
                 const SizedBox(height: 16),
                 
-                // Title Field
                 TextField(
                   controller: TextEditingController(text: editTitle)..selection = TextSelection.collapsed(offset: editTitle.length),
                   onChanged: (val) => editTitle = val,
@@ -282,7 +295,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Date & Time Pickers
                 Row(
                   children: [
                     Expanded(
@@ -431,7 +443,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Actions
                 Row(
                   children: [
                     IconButton(
@@ -465,7 +476,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                         );
 
-                        // Android fires alarms immediately for past timestamps.
                         if (!isPast && !editNonPriority) {
                           final updatedTask = Task(
                             id: task.id,
@@ -618,7 +628,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      // Persistent Chat Bar
       bottomNavigationBar: _buildPersistentChatBar(),
     );
   }
@@ -636,7 +645,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Left Time Column
             SizedBox(
               width: 65,
               child: Padding(
@@ -647,8 +655,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
-            
-            // Middle Timeline Graphic
             Column(
               children: [
                 Container(
@@ -667,8 +673,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
             const SizedBox(width: 16),
-            
-            // Right Task Card
             Expanded(
               child: Container(
                 margin: const EdgeInsets.only(bottom: 16),
@@ -733,7 +737,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       padding: EdgeInsets.only(
         left: 16, right: 16, top: 12,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24, // Adapts to keyboard
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24, 
       ),
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -798,7 +802,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- (Keep _buildStatsHeader, _buildStatItem, _buildTabSelector, _buildEmptyState, _buildDrawer exactly as they were in your code) ---
   Widget _buildStatsHeader() { return Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Row(children: [Expanded(child: _buildStatItem('Success', '${_successRate.toStringAsFixed(0)}%', AppColors.accent)), const SizedBox(width: 8), Expanded(child: _buildStatItem('Done', '$_completedCount', AppColors.success)), const SizedBox(width: 8), Expanded(child: _buildStatItem('Missed', '$_missedCount', AppColors.error)),],),); }
   Widget _buildStatItem(String title, String val, Color col) { return Container(padding: const EdgeInsets.symmetric(vertical: 14), decoration: BoxDecoration(color: AppColors.surfaceVariant.withOpacity(0.5), borderRadius: BorderRadius.circular(16), border: Border.all(color: col.withAlpha(40)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 5))]), child: Column(children: [Text(val, style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.bold, color: col)), const SizedBox(height: 4), Text(title, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary, letterSpacing: 0.5)),],),); }
   Widget _buildTabSelector() { final tabs = ['ALL', 'UPCOMING', 'MISSED', 'DONE']; return Container(height: 44, margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), decoration: BoxDecoration(color: AppColors.surfaceVariant.withOpacity(0.4), borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.divider.withOpacity(0.5))), child: Row(children: tabs.map((tab) { final isSelected = _selectedTab == tab; return Expanded(child: GestureDetector(onTap: () { if (!isSelected) { HapticFeedback.selectionClick(); setState(() => _selectedTab = tab); } }, child: AnimatedContainer(duration: const Duration(milliseconds: 250), curve: Curves.easeOutCubic, decoration: BoxDecoration(gradient: isSelected ? const LinearGradient(colors: [AppColors.surfaceElevated, AppColors.surfaceVariant], begin: Alignment.topCenter, end: Alignment.bottomCenter) : null, borderRadius: BorderRadius.circular(14), boxShadow: isSelected ? [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 4, offset: const Offset(0, 2))] : [],), alignment: Alignment.center, child: Text(tab, style: GoogleFonts.inter(fontSize: 12, fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500, color: isSelected ? AppColors.text : AppColors.textMuted),),),),); }).toList(),),); }
