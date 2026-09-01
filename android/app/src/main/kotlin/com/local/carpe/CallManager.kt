@@ -14,7 +14,6 @@ import android.telecom.TelecomManager
 import android.util.Log
 
 object CallManager {
-    // PREVENTS DOUBLE CALLS: Locks the incoming call function for 10 seconds after a trigger
     private var lastCallTime: Long = 0
 
     fun registerAccount(context: Context) {
@@ -67,7 +66,6 @@ object CallManager {
         alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
     }
 
-    // --- NEW: Kills background alarms when a task is deleted or rescheduled ---
     fun cancelNativeAlarm(context: Context, taskId: String) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(context, CarpeAlarmReceiver::class.java).apply {
@@ -85,7 +83,6 @@ object CallManager {
     fun triggerIncomingCall(context: Context, taskId: String, name: String, number: String, audioPath: String?) {
         val now = System.currentTimeMillis()
         
-        // DEBOUNCE: If a call was triggered in the last 10 seconds, drop this duplicate request
         if (now - lastCallTime < 10000) {
             Log.w("CallManager", "Duplicate call blocked by debounce lock.")
             return
@@ -99,11 +96,20 @@ object CallManager {
         val handle = PhoneAccountHandle(componentName, "CarpeDiemAccount")
         
         val cleanNumber = number.replace(Regex("[^0-9+]"), "")
+        
+        // Populate nested call extras for Telecom compliance
+        val callExtras = Bundle().apply {
+            putString("EXTRA_CALLER_NAME", name)
+            putString("EXTRA_TASK_ID", taskId)
+            putString("EXTRA_AUDIO_PATH", audioPath)
+        }
+
         val bundle = Bundle().apply {
             putParcelable(TelecomManager.EXTRA_INCOMING_CALL_ADDRESS, Uri.parse("tel:${if (cleanNumber.isEmpty()) "12345" else cleanNumber}"))
             putString("EXTRA_CALLER_NAME", name)
             putString("EXTRA_TASK_ID", taskId)
             putString("EXTRA_AUDIO_PATH", audioPath)
+            putBundle(TelecomManager.EXTRA_INCOMING_CALL_EXTRAS, callExtras)
         }
         
         telecomManager.addNewIncomingCall(handle, bundle)
