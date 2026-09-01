@@ -1,7 +1,8 @@
 import 'dart:ui';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 import 'assistant_executor.dart';
 import 'database_helper.dart';
@@ -12,12 +13,9 @@ void notificationTapBackground(NotificationResponse response) async {
   DartPluginRegistrant.ensureInitialized();
   await DatabaseHelper.instance.database;
 
-  // Handle persistent text input without requiring the application UI to open.
   if (response.actionId == 'reply_action' && response.input != null) {
-    final result =
-        await AssistantExecutor.instance.executeVoiceCommand(response.input!);
-    final FlutterLocalNotificationsPlugin flnp =
-        FlutterLocalNotificationsPlugin();
+    final result = await AssistantExecutor.instance.executeVoiceCommand(response.input!);
+    final FlutterLocalNotificationsPlugin flnp = FlutterLocalNotificationsPlugin();
     await flnp.show(
       DateTime.now().millisecond,
       'Carpe Diem',
@@ -25,14 +23,14 @@ void notificationTapBackground(NotificationResponse response) async {
       const NotificationDetails(
         android: AndroidNotificationDetails(
           'feedback_channel',
-          'Feedback',
+          'Assistant Feedback',
           importance: Importance.high,
+          priority: Priority.high,
         ),
       ),
     );
   }
 
-  // Handle task reminder actions without requiring the application UI to open.
   final payload = response.payload;
   if (payload != null && payload.startsWith('task_')) {
     final taskId = payload.replaceFirst('task_', '');
@@ -43,12 +41,9 @@ void notificationTapBackground(NotificationResponse response) async {
       await DatabaseHelper.instance.updateTaskStatus(taskId, 'MISSED');
     }
 
-    // Both task actions are terminal, so remove the reminder once processed.
     if (response.id != null &&
-        (response.actionId == 'mark_done' ||
-            response.actionId == 'mark_missed')) {
-      final FlutterLocalNotificationsPlugin flnp =
-          FlutterLocalNotificationsPlugin();
+        (response.actionId == 'mark_done' || response.actionId == 'mark_missed')) {
+      final FlutterLocalNotificationsPlugin flnp = FlutterLocalNotificationsPlugin();
       await flnp.cancel(response.id!);
     }
   }
@@ -60,15 +55,15 @@ class NotificationService {
 
   static Future<void> initialize() async {
     try {
-      // Use the launcher icon until a dedicated transparent notification icon
-      // is added under android/app/src/main/res/drawable/.
-      const AndroidInitializationSettings androidInitializationSettings =
+      tz.initializeTimeZones();
+
+      const AndroidInitializationSettings androidInitSettings =
           AndroidInitializationSettings('@mipmap/ic_launcher');
-      const InitializationSettings initializationSettings =
-          InitializationSettings(android: androidInitializationSettings);
+      const InitializationSettings initSettings =
+          InitializationSettings(android: androidInitSettings);
 
       await _notifications.initialize(
-        initializationSettings,
+        initSettings,
         onDidReceiveNotificationResponse: notificationTapBackground,
         onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
       );
@@ -77,15 +72,12 @@ class NotificationService {
           _notifications.resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>();
 
-      if (androidImplementation == null) {
-        return;
-      }
+      if (androidImplementation == null) return;
 
-      // Android 13+ requires notification permission at runtime. Exact-alarm
-      // permission is required for time-sensitive scheduled task reminders.
       await androidImplementation.requestNotificationsPermission();
       await androidImplementation.requestExactAlarmsPermission();
 
+      // Register ALL required notification channels
       const AndroidNotificationChannel taskChannel = AndroidNotificationChannel(
         'task_reminders',
         'Task Reminders',
@@ -94,16 +86,26 @@ class NotificationService {
         playSound: true,
         enableVibration: true,
       );
-      const AndroidNotificationChannel feedbackChannel =
-          AndroidNotificationChannel(
+
+      const AndroidNotificationChannel feedbackChannel = AndroidNotificationChannel(
         'feedback_channel',
         'Assistant Feedback',
-        description: 'Persistent background assistant.',
+        description: 'Persistent background assistant feedback.',
         importance: Importance.high,
+      );
+
+      const AndroidNotificationChannel persistentChannel = AndroidNotificationChannel(
+        'persistent_channel',
+        'Assistant Overlay',
+        description: 'Ongoing background assistant bar.',
+        importance: Importance.low,
+        playSound: false,
+        enableVibration: false,
       );
 
       await androidImplementation.createNotificationChannel(taskChannel);
       await androidImplementation.createNotificationChannel(feedbackChannel);
+      await androidImplementation.createNotificationChannel(persistentChannel);
     } catch (error, stackTrace) {
       debugPrint('Notification initialization failed: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -121,8 +123,8 @@ class NotificationService {
       ],
       allowGeneratedReplies: true,
     );
-    const AndroidNotificationDetails androidDetails =
-        AndroidNotificationDetails(
+
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       'persistent_channel',
       'Assistant Overlay',
       importance: Importance.low,
@@ -131,6 +133,7 @@ class NotificationService {
       autoCancel: false,
       actions: [replyAction],
     );
+
     await _notifications.show(
       0,
       'Carpe Diem',
@@ -139,7 +142,6 @@ class NotificationService {
     );
   }
 
-  /// Shows the actionable notification delivered when a task reminder fires.
   static Future<void> showTaskReminder(Task task) async {
     const androidDetails = AndroidNotificationDetails(
       'task_reminders',
@@ -147,16 +149,8 @@ class NotificationService {
       importance: Importance.max,
       priority: Priority.max,
       actions: <AndroidNotificationAction>[
-        AndroidNotificationAction(
-          'mark_done',
-          'Done',
-          showsUserInterface: false,
-        ),
-        AndroidNotificationAction(
-          'mark_missed',
-          'Missed',
-          showsUserInterface: false,
-        ),
+        AndroidNotificationAction('mark_done', 'Done', showsUserInterface: false),
+        AndroidNotificationAction('mark_missed', 'Missed', showsUserInterface: false),
       ],
     );
 
@@ -165,6 +159,40 @@ class NotificationService {
       'Task Reminder',
       task.title,
       const NotificationDetails(android: androidDetails),
+      payload: 'task_${task.id}',
+    );
+  }
+
+  static Future<void> scheduleTaskReminder(Task task) async {
+    if (task.dueDate == null) return;
+    
+    final scheduledDate = tz.TZDateTime.fromMillisecondsSinceEpoch(
+      tz.local,
+      task.dueDate!,
+    );
+
+    if (scheduledDate.isBefore(tz.TZDateTime.now(tz.local))) return;
+
+    const androidDetails = AndroidNotificationDetails(
+      'task_reminders',
+      'Task Reminders',
+      importance: Importance.max,
+      priority: Priority.max,
+      actions: <AndroidNotificationAction>[
+        AndroidNotificationAction('mark_done', 'Done', showsUserInterface: false),
+        AndroidNotificationAction('mark_missed', 'Missed', showsUserInterface: false),
+      ],
+    );
+
+    await _notifications.zonedSchedule(
+      task.id.hashCode,
+      'Task Reminder',
+      task.title,
+      scheduledDate,
+      const NotificationDetails(android: androidDetails),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
       payload: 'task_${task.id}',
     );
   }
