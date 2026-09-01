@@ -38,7 +38,7 @@ class DatabaseHelper {
     return await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 2,
+        version: 3,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       ),
@@ -68,33 +68,33 @@ class DatabaseHelper {
     // FTS5 Virtual Table for Voice Search
     await db.execute('''
       CREATE VIRTUAL TABLE IF NOT EXISTS tasks_fts USING fts5(
-        title, 
-        content='tasks', 
-        content_rowid='rowid', 
+        title,
+        content='tasks',
+        content_rowid='rowid',
         tokenize='porter unicode61'
       )
     ''');
 
     // Sync Triggers
     await db.execute('''
-      CREATE TRIGGER tasks_ai AFTER INSERT ON tasks 
-      BEGIN 
-        INSERT INTO tasks_fts(rowid, title) VALUES (new.rowid, new.title); 
+      CREATE TRIGGER tasks_ai AFTER INSERT ON tasks
+      BEGIN
+        INSERT INTO tasks_fts(rowid, title) VALUES (new.rowid, new.title);
       END;
     ''');
 
     await db.execute('''
-      CREATE TRIGGER tasks_ad AFTER DELETE ON tasks 
-      BEGIN 
-        INSERT INTO tasks_fts(tasks_fts, rowid, title) VALUES('delete', old.rowid, old.title); 
+      CREATE TRIGGER tasks_ad AFTER DELETE ON tasks
+      BEGIN
+        INSERT INTO tasks_fts(tasks_fts, rowid, title) VALUES('delete', old.rowid, old.title);
       END;
     ''');
 
     await db.execute('''
-      CREATE TRIGGER tasks_au AFTER UPDATE ON tasks 
-      BEGIN 
-        INSERT INTO tasks_fts(tasks_fts, rowid, title) VALUES('delete', old.rowid, old.title); 
-        INSERT INTO tasks_fts(rowid, title) VALUES (new.rowid, new.title); 
+      CREATE TRIGGER tasks_au AFTER UPDATE OF title ON tasks
+      BEGIN
+        INSERT INTO tasks_fts(tasks_fts, rowid, title) VALUES('delete', old.rowid, old.title);
+        INSERT INTO tasks_fts(rowid, title) VALUES (new.rowid, new.title);
       END;
     ''');
   }
@@ -110,6 +110,17 @@ class DatabaseHelper {
         'UPDATE tasks SET contact_number = contactNumber '
         'WHERE contact_number IS NULL',
       );
+    }
+    if (oldVersion < 3) {
+      // Limit FTS synchronization to title changes to avoid Android SQLite crashes.
+      await db.execute('DROP TRIGGER IF EXISTS tasks_au');
+      await db.execute('''
+        CREATE TRIGGER tasks_au AFTER UPDATE OF title ON tasks
+        BEGIN
+          INSERT INTO tasks_fts(tasks_fts, rowid, title) VALUES('delete', old.rowid, old.title);
+          INSERT INTO tasks_fts(rowid, title) VALUES (new.rowid, new.title);
+        END;
+      ''');
     }
   }
 
@@ -168,9 +179,9 @@ class DatabaseHelper {
   Future<List<String>> searchTaskIdsByFts(String query) async {
     final db = await database;
     final searchPattern = '"$query"*';
-    
+
     final List<Map<String, dynamic>> results = await db.rawQuery(
-      'SELECT id FROM tasks WHERE rowid IN (SELECT rowid FROM tasks_fts WHERE title MATCH ?) LIMIT 10', 
+      'SELECT id FROM tasks WHERE rowid IN (SELECT rowid FROM tasks_fts WHERE title MATCH ?) LIMIT 10',
       [searchPattern]
     );
 
