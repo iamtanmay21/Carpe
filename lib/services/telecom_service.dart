@@ -1,12 +1,16 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import '../data/models/task.dart';
+import 'notification_service.dart';
 
 class TelecomService {
   static const MethodChannel _channel = MethodChannel('com.local.carpe/telecom');
 
   static Future<void> scheduleNativeAlarm(Task task) async {
-    // Never hand Android a past timestamp, which AlarmManager fires immediately.
+    // 1. ALWAYS schedule the local notification as the baseline reminder
+    await NotificationService.scheduleTaskReminder(task);
+
+    // 2. If past due or "Notification Only", skip the intrusive native call alarm
     if (task.dueDateTime.isBefore(DateTime.now()) || task.isNonPriority) {
       return;
     }
@@ -25,7 +29,6 @@ class TelecomService {
     }
   }
 
-  // --- NEW: Kills background alarms when a task is deleted or rescheduled ---
   static Future<void> cancelNativeAlarm(String taskId) async {
     if (kIsWeb) return;
     try {
@@ -68,7 +71,6 @@ class TelecomService {
     try { await _channel.invokeMethod('openAutoStartSettings'); } catch (_) {}
   }
 
-  // --- BRIDGES FOR TTS & STT ---
   static Future<void> openPlayStoreForSpeechServices() async {
     if (kIsWeb) return;
     try { await _channel.invokeMethod('openPlayStoreForSpeechServices'); } catch (_) {}
