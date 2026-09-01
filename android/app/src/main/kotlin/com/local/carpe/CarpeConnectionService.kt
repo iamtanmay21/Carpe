@@ -24,22 +24,17 @@ class CarpeConnectionService : ConnectionService() {
     ): Connection {
         val bundle = request?.extras
         val telecomExtras = bundle?.getBundle(TelecomManager.EXTRA_INCOMING_CALL_EXTRAS)
-        val name = telecomExtras?.getString("EXTRA_CALLER_NAME")
-            ?: bundle?.getString("EXTRA_CALLER_NAME")
-            ?: "Carpe Diem"
+        
+        val name = telecomExtras?.getString("EXTRA_CALLER_NAME") ?: bundle?.getString("EXTRA_CALLER_NAME") ?: "Carpe Diem"
         val numberUri = bundle?.getParcelable<Uri>(TelecomManager.EXTRA_INCOMING_CALL_ADDRESS)
-        val taskId = telecomExtras?.getString("EXTRA_TASK_ID")
-            ?: bundle?.getString("EXTRA_TASK_ID")
-            ?: ""
-        val audioPath = telecomExtras?.getString("EXTRA_AUDIO_PATH")
-            ?: bundle?.getString("EXTRA_AUDIO_PATH")
+        val taskId = telecomExtras?.getString("EXTRA_TASK_ID") ?: bundle?.getString("EXTRA_TASK_ID") ?: ""
+        val audioPath = telecomExtras?.getString("EXTRA_AUDIO_PATH") ?: bundle?.getString("EXTRA_AUDIO_PATH")
 
         val connection = CarpeConnection(applicationContext, taskId, name, audioPath)
         connection.setAddress(numberUri, TelecomManager.PRESENTATION_ALLOWED)
         connection.setCallerDisplayName(name, TelecomManager.PRESENTATION_ALLOWED)
         connection.setInitializing()
         connection.setRinging()
-        
         connection.audioModeIsVoip = true
         
         return connection
@@ -63,33 +58,27 @@ class CarpeConnection(
     private var mediaPlayer: MediaPlayer? = null
     private var tts: TextToSpeech? = null
     
-    // Snooze Logic State
     private var isSnoozeMode = false
     private var snoozeInput = ""
     private val snoozeHandler = Handler(Looper.getMainLooper())
     private var snoozeRunnable: Runnable? = null
 
-    // --- THE FIX: 45 SECOND TIMEOUT HANDLER ---
     private val ringTimeoutHandler = Handler(Looper.getMainLooper())
     private val ringTimeoutRunnable = Runnable {
         if (state == STATE_RINGING) {
-            updateTaskStatusInDatabase("MISSED") // Automatically update SQLite
+            updateTaskStatusInDatabase("MISSED")
             setDisconnected(DisconnectCause(DisconnectCause.MISSED, "Missed reminder"))
             destroyConnection()
         }
     }
 
     init {
-        // Start the 45-second countdown as soon as the call begins ringing
         ringTimeoutHandler.postDelayed(ringTimeoutRunnable, 45000)
     }
 
     override fun onAnswer() {
         super.onAnswer()
-        
-        // Cancel the 45-second timeout because the user picked up!
         ringTimeoutHandler.removeCallbacks(ringTimeoutRunnable)
-        
         setActive()
         
         if (!audioPath.isNullOrEmpty()) {
@@ -216,12 +205,12 @@ class CarpeConnection(
 
     override fun onAbort() {
         super.onAbort()
+        updateTaskStatusInDatabase("MISSED")
         setDisconnected(DisconnectCause(DisconnectCause.CANCELED))
         destroyConnection()
     }
 
     private fun destroyConnection() {
-        // Safety cleanup to ensure the handler doesn't fire after the call ends
         ringTimeoutHandler.removeCallbacks(ringTimeoutRunnable)
         
         mediaPlayer?.let {
@@ -247,13 +236,13 @@ class CarpeConnection(
 
             if (!dbFile.exists()) return
 
-            SQLiteDatabase.openDatabase(
+            val db = SQLiteDatabase.openDatabase(
                 dbFile.absolutePath,
                 null,
                 SQLiteDatabase.OPEN_READWRITE or SQLiteDatabase.ENABLE_WRITE_AHEAD_LOGGING
-            ).use { db ->
-                db.execSQL("UPDATE tasks SET status = ? WHERE id = ?", arrayOf(status, taskId))
-            }
+            )
+            db.execSQL("UPDATE tasks SET status = ? WHERE id = ?", arrayOf(status, taskId))
+            db.close()
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -267,20 +256,25 @@ class CarpeConnection(
 
             if (!dbFile.exists()) return
 
-            SQLiteDatabase.openDatabase(
+            val db = SQLiteDatabase.openDatabase(
                 dbFile.absolutePath,
                 null,
                 SQLiteDatabase.OPEN_READWRITE or SQLiteDatabase.ENABLE_WRITE_AHEAD_LOGGING
-            ).use { db ->
-                // FIXED: Changed due_timestamp to due_date and status to PENDING
-                db.execSQL(
-                    "UPDATE tasks SET due_date = ?, status = 'PENDING' WHERE id = ?",
-                    arrayOf(newTimestamp, taskId)
-                )
-            }
+            )
+            db.execSQL(
+                "UPDATE tasks SET due_date = ?, status = 'PENDING' WHERE id = ?",
+                arrayOf(newTimestamp, taskId)
+            )
+            db.close()
 
-            // Securely re-arm the alarm only after the database write succeeds
-            CallManager.scheduleNativeAlarm(context, taskId, name, "Reminder", audioPath, newTimestamp)
+            CallManager.scheduleNativeAlarm(
+                context,
+                taskId,
+                name,
+                "Reminder",
+                audioPath,
+                newTimestamp
+            )
         } catch (e: Exception) {
             e.printStackTrace()
         }
