@@ -19,6 +19,9 @@ class MainActivity: FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Register as soon as the user opens the app so Android surfaces Carpe
+        // in Calling Accounts before the first alarm or incoming call.
+        CallManager.registerAccount(this)
         handleIntent(intent)
     }
 
