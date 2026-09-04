@@ -58,7 +58,7 @@ class NotificationService {
       tz.initializeTimeZones();
 
       const AndroidInitializationSettings androidInitSettings =
-          AndroidInitializationSettings('@drawable/ic_notification');
+          AndroidInitializationSettings('@mipmap/ic_launcher');
       const InitializationSettings initSettings =
           InitializationSettings(android: androidInitSettings);
 
@@ -74,7 +74,14 @@ class NotificationService {
 
       // Request this before any notification is shown, including the persistent
       // input notification that is displayed immediately after initialization.
-      await _requestAndroidNotificationPermission(androidImplementation);
+      final notificationPermissionGranted =
+          await _requestAndroidNotificationPermission(androidImplementation);
+      if (notificationPermissionGranted != true) {
+        debugPrint(
+          'CRITICAL: Notification permission was not granted; aborting notification channel creation.',
+        );
+        return;
+      }
       await androidImplementation.requestExactAlarmsPermission();
 
       const AndroidNotificationChannel taskChannel = AndroidNotificationChannel(
@@ -108,6 +115,7 @@ class NotificationService {
     } catch (error, stackTrace) {
       debugPrint('Notification initialization failed: $error');
       debugPrintStack(stackTrace: stackTrace);
+      rethrow;
     }
   }
 
@@ -151,10 +159,10 @@ class NotificationService {
           _notifications.resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>();
 
-  static Future<void> _requestAndroidNotificationPermission(
+  static Future<bool?> _requestAndroidNotificationPermission(
     AndroidFlutterLocalNotificationsPlugin androidImplementation,
   ) async {
-    await androidImplementation.requestNotificationsPermission();
+    return androidImplementation.requestNotificationsPermission();
   }
 
   static Future<void> showTaskReminder(Task task) async {
