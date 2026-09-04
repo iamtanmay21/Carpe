@@ -58,7 +58,7 @@ class NotificationService {
       tz.initializeTimeZones();
 
       const AndroidInitializationSettings androidInitSettings =
-          AndroidInitializationSettings('@mipmap/ic_launcher');
+          AndroidInitializationSettings('@drawable/ic_notification');
       const InitializationSettings initSettings =
           InitializationSettings(android: androidInitSettings);
 
