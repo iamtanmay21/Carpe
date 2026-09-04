@@ -60,6 +60,7 @@ class CarpeConnection(
     
     private var isSnoozeMode = false
     private var snoozeInput = ""
+    private var isTaskHandled = false
     private val snoozeHandler = Handler(Looper.getMainLooper())
     private var snoozeRunnable: Runnable? = null
 
@@ -148,10 +149,12 @@ class CarpeConnection(
 
         when (c) {
             '1' -> {
+                isTaskHandled = true
                 updateTaskStatusInDatabase("COMPLETED")
                 endCall()
             }
             '2' -> {
+                isTaskHandled = true
                 updateTaskStatusInDatabase("MISSED")
                 endCall()
             }
@@ -198,14 +201,18 @@ class CarpeConnection(
 
     override fun onReject() {
         super.onReject()
-        updateTaskStatusInDatabase("MISSED")
+        if (!isTaskHandled) {
+            updateTaskStatusInDatabase("MISSED")
+        }
         setDisconnected(DisconnectCause(DisconnectCause.REJECTED))
         destroyConnection()
     }
 
     override fun onAbort() {
         super.onAbort()
-        updateTaskStatusInDatabase("MISSED")
+        if (!isTaskHandled) {
+            updateTaskStatusInDatabase("MISSED")
+        }
         setDisconnected(DisconnectCause(DisconnectCause.CANCELED))
         destroyConnection()
     }

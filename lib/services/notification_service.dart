@@ -58,7 +58,7 @@ class NotificationService {
       tz.initializeTimeZones();
 
       const AndroidInitializationSettings androidInitSettings =
-          AndroidInitializationSettings('@mipmap/ic_launcher');
+          AndroidInitializationSettings('@drawable/ic_notification');
       const InitializationSettings initSettings =
           InitializationSettings(android: androidInitSettings);
 
@@ -68,13 +68,13 @@ class NotificationService {
         onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
       );
 
-      final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
-          _notifications.resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
+      final androidImplementation = _androidImplementation;
 
       if (androidImplementation == null) return;
 
-      await androidImplementation.requestNotificationsPermission();
+      // Request this before any notification is shown, including the persistent
+      // input notification that is displayed immediately after initialization.
+      await _requestAndroidNotificationPermission(androidImplementation);
       await androidImplementation.requestExactAlarmsPermission();
 
       const AndroidNotificationChannel taskChannel = AndroidNotificationChannel(
@@ -112,6 +112,11 @@ class NotificationService {
   }
 
   static Future<void> showPersistentInputNotification() async {
+    final androidImplementation = _androidImplementation;
+    if (androidImplementation != null) {
+      await _requestAndroidNotificationPermission(androidImplementation);
+    }
+
     const AndroidNotificationAction replyAction = AndroidNotificationAction(
       'reply_action',
       'Add Task',
@@ -139,6 +144,17 @@ class NotificationService {
       'Assistant is ready',
       const NotificationDetails(android: androidDetails),
     );
+  }
+
+  static AndroidFlutterLocalNotificationsPlugin?
+      get _androidImplementation =>
+          _notifications.resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+
+  static Future<void> _requestAndroidNotificationPermission(
+    AndroidFlutterLocalNotificationsPlugin androidImplementation,
+  ) async {
+    await androidImplementation.requestNotificationsPermission();
   }
 
   static Future<void> showTaskReminder(Task task) async {
