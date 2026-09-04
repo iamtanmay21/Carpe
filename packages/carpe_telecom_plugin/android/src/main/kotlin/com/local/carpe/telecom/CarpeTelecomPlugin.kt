@@ -1,6 +1,7 @@
 package com.local.carpe.telecom
 
 import android.content.Context
+
 import android.content.ComponentName
 import android.content.Intent
 import android.graphics.drawable.Icon
@@ -8,6 +9,11 @@ import android.net.Uri
 import android.provider.Settings
 import android.telecom.PhoneAccount
 import android.telecom.PhoneAccountHandle
+
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+
 import android.telecom.TelecomManager
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.MethodCall
@@ -28,6 +34,7 @@ class CarpeTelecomPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         applicationContext = binding.applicationContext
         channel = MethodChannel(binding.binaryMessenger, CHANNEL)
         channel.setMethodCallHandler(this)
+
         registerPhoneAccount()
     }
 
@@ -43,7 +50,15 @@ class CarpeTelecomPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                 result.success(true)
             }
             "triggerCall" -> triggerCall(call, result)
+
             "isPhoneAccountEnabled" -> result.success(isPhoneAccountEnabled())
+
+            "isPhoneAccountEnabled" -> result.success(
+                applicationContext.getSystemService(TelecomManager::class.java)
+                    ?.callCapablePhoneAccounts
+                    ?.isNotEmpty() == true,
+            )
+
             "openTelecomSettings" -> openTelecomSettings(result)
             "openAutoStartSettings" -> openAutoStartSettings(result)
             "openPlayStoreForSpeechServices" -> openPlayStore(result)
@@ -61,6 +76,7 @@ class CarpeTelecomPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         sendCommand(COMMAND_TRIGGER, call)
         result.success(true)
     }
+
 
     private fun isPhoneAccountEnabled(): Boolean {
         registerPhoneAccount()
@@ -102,6 +118,7 @@ class CarpeTelecomPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         telecomManager.registerPhoneAccount(account)
     }
 
+
     private fun sendCommand(command: String, call: MethodCall) {
         applicationContext.sendBroadcast(
             Intent(ACTION_TELECOM_COMMAND)
@@ -142,7 +159,9 @@ class CarpeTelecomPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         const val COMMAND_SCHEDULE = "schedule"
         const val COMMAND_CANCEL = "cancel"
         const val COMMAND_TRIGGER = "trigger"
+
         const val CONNECTION_SERVICE_CLASS = "com.local.carpe.CarpeConnectionService"
         const val ACCOUNT_ID = "CarpeDiemAccount"
+
     }
 }
