@@ -7,6 +7,7 @@ import 'package:timezone/timezone.dart' as tz;
 import 'assistant_executor.dart';
 import 'database_helper.dart';
 import '../data/models/task.dart';
+import '../models/execution_result.dart';
 
 @pragma('vm:entry-point')
 void notificationTapBackground(NotificationResponse response) async {
@@ -15,20 +16,10 @@ void notificationTapBackground(NotificationResponse response) async {
 
   if (response.actionId == 'reply_action' && response.input != null) {
     final result = await AssistantExecutor.instance.executeVoiceCommand(response.input!);
-    final FlutterLocalNotificationsPlugin flnp = FlutterLocalNotificationsPlugin();
-    await flnp.show(
-      DateTime.now().millisecond,
-      'Carpe Diem',
-      result.feedbackMessage,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'feedback_channel',
-          'Assistant Feedback',
-          importance: Importance.high,
-          priority: Priority.high,
-        ),
-      ),
-    );
+    // Re-post the ongoing notification before showing feedback. Android uses
+    // this replacement to dismiss the RemoteInput UI and its submitted text.
+    await NotificationService.showPersistentInputNotification();
+    await NotificationService.showAssistantFeedback(result);
   }
 
   final payload = response.payload;
@@ -130,7 +121,7 @@ class NotificationService {
       'Add Task',
       inputs: [
         AndroidNotificationActionInput(
-          label: 'Type task... e.g. Buy milk tomorrow',
+          label: 'e.g. Call mom at 7:30',
         ),
       ],
       allowGeneratedReplies: true,
@@ -149,8 +140,34 @@ class NotificationService {
     await _notifications.show(
       0,
       'Carpe Diem',
-      'Assistant is ready',
+      'What needs to be done?',
       const NotificationDetails(android: androidDetails),
+    );
+  }
+
+  /// Shows a separate, dismissible confirmation after a direct reply is
+  /// processed. The persistent input notification is deliberately not reused
+  /// for this, so it remains ready for the next task.
+  static Future<void> showAssistantFeedback(ExecutionResult result) async {
+    final taskTitle = result.affectedTasks.isNotEmpty
+        ? result.affectedTasks.first['title']?.toString()
+        : null;
+    final title = taskTitle == null || taskTitle.trim().isEmpty
+        ? 'Noted'
+        : 'Noted $taskTitle';
+
+    await _notifications.show(
+      DateTime.now().microsecondsSinceEpoch.remainder(1 << 31),
+      title,
+      result.feedbackMessage,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'feedback_channel',
+          'Assistant Feedback',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+      ),
     );
   }
 

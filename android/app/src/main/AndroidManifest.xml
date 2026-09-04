@@ -58,6 +58,14 @@
         </receiver>
 
         <receiver
+            android:name=".CarpeTelecomCommandReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.local.carpe.TELECOM_COMMAND" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
             android:name=".CarpeBootReceiver"
             android:directBootAware="true"
             android:exported="true">
