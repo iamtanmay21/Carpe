@@ -35,7 +35,7 @@ class DatabaseHelper {
       dbPath = join(appDocDir.path, 'carpe_diem.db');
     }
 
-    return await databaseFactory.openDatabase(
+    final db = await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
         version: 3,
@@ -43,6 +43,20 @@ class DatabaseHelper {
         onUpgrade: _onUpgrade,
       ),
     );
+
+    // Temporary diagnostics: retain these logs until Flutter and native paths
+    // and connection-level SQLite settings have been compared on a device.
+    debugPrint('[DatabaseDiagnostics][Flutter] path=${db.path}');
+    debugPrint(
+      '[DatabaseDiagnostics][Flutter] journal_mode='
+      '${await db.rawQuery('PRAGMA journal_mode;')}',
+    );
+    debugPrint(
+      '[DatabaseDiagnostics][Flutter] busy_timeout='
+      '${await db.rawQuery('PRAGMA busy_timeout;')}',
+    );
+
+    return db;
   }
 
   Future<void> _onCreate(Database db, int version) async {

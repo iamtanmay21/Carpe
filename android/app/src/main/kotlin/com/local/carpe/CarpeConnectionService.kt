@@ -15,6 +15,8 @@ import android.telecom.ConnectionService
 import android.telecom.DisconnectCause
 import android.telecom.PhoneAccountHandle
 import android.telecom.TelecomManager
+import android.util.Log
+import java.io.File
 import java.util.Locale
 
 class CarpeConnectionService : ConnectionService() {
@@ -239,7 +241,8 @@ class CarpeConnection(
         if (taskId.isEmpty()) return
         try {
             val appFlutterDir = context.getDir("flutter", Context.MODE_PRIVATE)
-            val dbFile = java.io.File(appFlutterDir, "carpe_diem.db")
+            val dbFile = File(appFlutterDir, "carpe_diem.db")
+            Log.d("DatabaseDiagnostics", "[Kotlin] resolved_path=${dbFile.absolutePath}")
 
             if (!dbFile.exists()) return
 
@@ -248,6 +251,7 @@ class CarpeConnection(
                 null,
                 SQLiteDatabase.OPEN_READWRITE or SQLiteDatabase.ENABLE_WRITE_AHEAD_LOGGING
             )
+            logDatabaseDiagnostics(db, dbFile)
             db.execSQL("UPDATE tasks SET status = ? WHERE id = ?", arrayOf(status, taskId))
             db.close()
         } catch (e: Exception) {
@@ -259,7 +263,8 @@ class CarpeConnection(
         if (taskId.isEmpty()) return
         try {
             val appFlutterDir = context.getDir("flutter", Context.MODE_PRIVATE)
-            val dbFile = java.io.File(appFlutterDir, "carpe_diem.db")
+            val dbFile = File(appFlutterDir, "carpe_diem.db")
+            Log.d("DatabaseDiagnostics", "[Kotlin] resolved_path=${dbFile.absolutePath}")
 
             if (!dbFile.exists()) return
 
@@ -268,6 +273,7 @@ class CarpeConnection(
                 null,
                 SQLiteDatabase.OPEN_READWRITE or SQLiteDatabase.ENABLE_WRITE_AHEAD_LOGGING
             )
+            logDatabaseDiagnostics(db, dbFile)
             db.execSQL(
                 "UPDATE tasks SET due_date = ?, status = 'PENDING' WHERE id = ?",
                 arrayOf(newTimestamp, taskId)
@@ -284,6 +290,22 @@ class CarpeConnection(
             )
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+    }
+
+    private fun logDatabaseDiagnostics(db: SQLiteDatabase, dbFile: File) {
+        // Temporary diagnostics: retain these logs until Flutter and native paths
+        // and connection-level SQLite settings have been compared on a device.
+        Log.d("DatabaseDiagnostics", "[Kotlin] path=${dbFile.absolutePath}")
+        db.rawQuery("PRAGMA journal_mode;", null).use { cursor ->
+            if (cursor.moveToFirst()) {
+                Log.d("DatabaseDiagnostics", "[Kotlin] journal_mode=${cursor.getString(0)}")
+            }
+        }
+        db.rawQuery("PRAGMA busy_timeout;", null).use { cursor ->
+            if (cursor.moveToFirst()) {
+                Log.d("DatabaseDiagnostics", "[Kotlin] busy_timeout=${cursor.getLong(0)}")
+            }
         }
     }
 }
