@@ -122,7 +122,10 @@ class CarpeTelecomPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     }
 
     private fun openAutoStartSettings(result: MethodChannel.Result) {
-        applicationContext.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+        intent.data = Uri.parse("package:" + applicationContext.packageName)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        applicationContext.startActivity(intent)
         result.success(true)
     }
 
