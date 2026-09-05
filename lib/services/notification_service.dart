@@ -16,7 +16,7 @@ void notificationTapBackground(NotificationResponse response) async {
 
   try {
     DartPluginRegistrant.ensureInitialized();
-    await NotificationService.initialize();
+    await NotificationService.initialize(isHeadless: true);
     await DatabaseHelper.instance.database;
 
     if (response.actionId == 'reply_action' && response.input != null) {
@@ -55,7 +55,7 @@ class NotificationService {
   static final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
 
-  static Future<void> initialize() async {
+  static Future<void> initialize({bool isHeadless = false}) async {
     try {
       tz.initializeTimeZones();
 
@@ -74,17 +74,19 @@ class NotificationService {
 
       if (androidImplementation == null) return;
 
-      // Request this before any notification is shown, including the persistent
-      // input notification that is displayed immediately after initialization.
-      final notificationPermissionGranted =
-          await _requestAndroidNotificationPermission(androidImplementation);
-      if (notificationPermissionGranted != true) {
-        debugPrint(
-          'CRITICAL: Notification permission was not granted; aborting notification channel creation.',
-        );
-        return;
+      if (!isHeadless) {
+        // Request this before any notification is shown, including the persistent
+        // input notification that is displayed immediately after initialization.
+        final notificationPermissionGranted =
+            await _requestAndroidNotificationPermission(androidImplementation);
+        if (notificationPermissionGranted != true) {
+          debugPrint(
+            'CRITICAL: Notification permission was not granted; aborting notification channel creation.',
+          );
+          return;
+        }
+        await androidImplementation.requestExactAlarmsPermission();
       }
-      await androidImplementation.requestExactAlarmsPermission();
 
       const AndroidNotificationChannel taskChannel = AndroidNotificationChannel(
         'task_reminders',
