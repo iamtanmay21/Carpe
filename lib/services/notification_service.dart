@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -11,32 +12,42 @@ import '../models/execution_result.dart';
 
 @pragma('vm:entry-point')
 void notificationTapBackground(NotificationResponse response) async {
-  DartPluginRegistrant.ensureInitialized();
-  await DatabaseHelper.instance.database;
+  WidgetsFlutterBinding.ensureInitialized();
 
-  if (response.actionId == 'reply_action' && response.input != null) {
-    final result = await AssistantExecutor.instance.executeVoiceCommand(response.input!);
-    // Re-post the ongoing notification before showing feedback. Android uses
-    // this replacement to dismiss the RemoteInput UI and its submitted text.
-    await NotificationService.showPersistentInputNotification();
-    await NotificationService.showAssistantFeedback(result);
-  }
+  try {
+    DartPluginRegistrant.ensureInitialized();
+    await NotificationService.initialize();
+    await DatabaseHelper.instance.database;
 
-  final payload = response.payload;
-  if (payload != null && payload.startsWith('task_')) {
-    final taskId = payload.replaceFirst('task_', '');
-
-    if (response.actionId == 'mark_done') {
-      await DatabaseHelper.instance.updateTaskStatus(taskId, 'COMPLETED');
-    } else if (response.actionId == 'mark_missed') {
-      await DatabaseHelper.instance.updateTaskStatus(taskId, 'MISSED');
+    if (response.actionId == 'reply_action' && response.input != null) {
+      final result =
+          await AssistantExecutor.instance.executeVoiceCommand(response.input!);
+      // Re-post the ongoing notification before showing feedback. Android uses
+      // this replacement to dismiss the RemoteInput UI and its submitted text.
+      await NotificationService.showPersistentInputNotification();
+      await NotificationService.showAssistantFeedback(result);
     }
 
-    if (response.id != null &&
-        (response.actionId == 'mark_done' || response.actionId == 'mark_missed')) {
-      final FlutterLocalNotificationsPlugin flnp = FlutterLocalNotificationsPlugin();
-      await flnp.cancel(response.id!);
+    final payload = response.payload;
+    if (payload != null && payload.startsWith('task_')) {
+      final taskId = payload.replaceFirst('task_', '');
+
+      if (response.actionId == 'mark_done') {
+        await DatabaseHelper.instance.updateTaskStatus(taskId, 'COMPLETED');
+      } else if (response.actionId == 'mark_missed') {
+        await DatabaseHelper.instance.updateTaskStatus(taskId, 'MISSED');
+      }
+
+      if (response.id != null &&
+          (response.actionId == 'mark_done' ||
+              response.actionId == 'mark_missed')) {
+        await NotificationService.cancel(response.id!);
+      }
     }
+  } catch (error, stackTrace) {
+    debugPrint('Background notification isolate failed: $error');
+    debugPrintStack(stackTrace: stackTrace);
+    await NotificationService.showIsolateCrash(error.toString());
   }
 }
 
@@ -170,6 +181,25 @@ class NotificationService {
       ),
     );
   }
+
+  static Future<void> showIsolateCrash(String error) async {
+    await _notifications.show(
+      9999,
+      'Isolate Crash',
+      error,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'feedback_channel',
+          'Assistant Feedback',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+      ),
+    );
+  }
+
+  static Future<void> cancel(int notificationId) =>
+      _notifications.cancel(notificationId);
 
   static AndroidFlutterLocalNotificationsPlugin?
       get _androidImplementation =>
