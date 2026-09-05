@@ -18,6 +18,7 @@ import 'calendar_history_screen.dart';
 import 'settings_screen.dart';
 
 import '../services/telecom_service.dart';
+import '../services/notification_service.dart';
 import '../services/voice_input_controller.dart';
 import '../services/assistant_executor.dart';
 
@@ -177,6 +178,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     setState(() => _tasks.removeWhere((t) => t.id == task.id));
     DatabaseHelper.instance.deleteTask(task.id);
     TelecomService.cancelNativeAlarm(task.id); 
+    NotificationService.cancel(task.id.hashCode);
   }
 
   Future<void> _markComplete(Task task) async {
