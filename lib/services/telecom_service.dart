@@ -7,14 +7,13 @@ class TelecomService {
   static const MethodChannel _channel = MethodChannel('com.local.carpe/telecom');
 
   static Future<void> scheduleNativeAlarm(Task task) async {
-    // 1. ALWAYS schedule the local notification as the baseline reminder
-    await NotificationService.scheduleTaskReminder(task);
-
-    // 2. If past due or "Notification Only", skip the intrusive native call alarm
+    // Only schedule a local notification for past-due or non-priority tasks.
     if (task.dueDateTime.isBefore(DateTime.now()) || task.isNonPriority) {
+      await NotificationService.scheduleTaskReminder(task);
       return;
     }
 
+    // Priority tasks use the native call alarm without a local notification.
     if (kIsWeb) return;
     try {
       await _channel.invokeMethod('scheduleAlarm', {

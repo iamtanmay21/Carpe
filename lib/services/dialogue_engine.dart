@@ -39,10 +39,11 @@ class DialogueEngine {
   static String _getRelativeTimeText(DateTime target, bool isDateOnly) {
     final now = DateTime.now();
     final diff = target.difference(now);
+    final int roundedMinutes = (diff.inSeconds / 60).round();
 
     // Relative Immediacy (< 60 mins)
-    if (!isDateOnly && diff.inMinutes > 0 && diff.inMinutes <= 60 && target.day == now.day) {
-      return "in ${diff.inMinutes} minutes";
+    if (!isDateOnly && roundedMinutes > 0 && roundedMinutes <= 60 && target.day == now.day) {
+      return "in $roundedMinutes minutes";
     }
 
     String dayText = _formatDayOnly(target);

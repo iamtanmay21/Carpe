@@ -205,6 +205,15 @@ class CarpeConnection(
         super.onReject()
         if (!isTaskHandled) {
             updateTaskStatusInDatabase("MISSED")
+
+            // Trigger Missed Task Notification
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            val builder = android.app.Notification.Builder(context, "task_reminders")
+                .setSmallIcon(context.applicationInfo.icon)
+                .setContentTitle("Missed Task")
+                .setContentText(name)
+                .setAutoCancel(true)
+            notificationManager.notify(System.currentTimeMillis().toInt(), builder.build())
         }
         setDisconnected(DisconnectCause(DisconnectCause.REJECTED))
         destroyConnection()
