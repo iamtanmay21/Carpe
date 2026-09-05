@@ -24,7 +24,7 @@ void notificationTapBackground(NotificationResponse response) async {
           await AssistantExecutor.instance.executeVoiceCommand(response.input!);
       // Re-post the ongoing notification before showing feedback. Android uses
       // this replacement to dismiss the RemoteInput UI and its submitted text.
-      await NotificationService.showPersistentInputNotification();
+      await NotificationService.showPersistentInputNotification(isHeadless: true);
       await NotificationService.showAssistantFeedback(result);
     }
 
@@ -123,9 +123,9 @@ class NotificationService {
     }
   }
 
-  static Future<void> showPersistentInputNotification() async {
+  static Future<void> showPersistentInputNotification({bool isHeadless = false}) async {
     final androidImplementation = _androidImplementation;
-    if (androidImplementation != null) {
+    if (androidImplementation != null && !isHeadless) {
       await _requestAndroidNotificationPermission(androidImplementation);
     }
 
