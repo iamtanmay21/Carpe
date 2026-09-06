@@ -20,7 +20,6 @@ void notificationTapBackground(NotificationResponse response) async {
     await DatabaseHelper.instance.database;
 
     if (response.actionId == 'reply_action_v2' && response.input != null) {
-
       try {
         await NotificationService._notifications.show(
           901,
@@ -78,19 +77,9 @@ void notificationTapBackground(NotificationResponse response) async {
               'Task Reminders',
               importance: Importance.max,
             ),
-        
-      final result =
-          await AssistantExecutor.instance.executeVoiceCommand(response.input!);
-
-      // Wait for Android 12 to finish destroying the old notification via the
-      // plugin's native auto-cancel.
-      await Future.delayed(const Duration(milliseconds: 500));
-
-
-      // Cleanly redraw the persistent notification and show feedback.
-      await NotificationService.showPersistentInputNotification(isHeadless: true);
-      await NotificationService.showAssistantFeedback(result);
-
+          ),
+        );
+      }
     }
 
     final payload = response.payload;
@@ -203,6 +192,7 @@ class NotificationService {
         ),
       ],
       allowGeneratedReplies: true,
+      cancelNotification: false,
     );
 
     const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
@@ -223,9 +213,6 @@ class NotificationService {
     );
   }
 
-  /// Shows a separate, dismissible confirmation after a direct reply is
-  /// processed. The persistent input notification is deliberately not reused
-  /// for this, so it remains ready for the next task.
   static Future<void> showAssistantFeedback(ExecutionResult result) async {
     final taskTitle = result.affectedTasks.isNotEmpty
         ? result.affectedTasks.first['title']?.toString()
