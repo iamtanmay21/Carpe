@@ -44,12 +44,15 @@ void notificationTapBackground(NotificationResponse response) async {
       final result =
           await AssistantExecutor.instance.executeVoiceCommand(userInput);
 
-      trace('8. Reposting persistent notification');
+      trace('8. Clearing processing notification');
+      await NotificationService.cancel(999);
+
+      trace('9. Reposting persistent notification');
       await NotificationService.showPersistentInputNotification(isHeadless: true);
 
-      trace('9. Showing assistant feedback');
+      trace('10. Showing assistant feedback');
       await NotificationService.showAssistantFeedback(result);
-      trace('10. Background sequence completed successfully');
+      trace('11. Background sequence completed successfully');
     }
 
     final payload = response.payload;
@@ -64,9 +67,7 @@ void notificationTapBackground(NotificationResponse response) async {
         await DatabaseHelper.instance.updateTaskStatus(taskId, 'MISSED');
       }
 
-      if (response.id != null &&
-          (response.actionId == 'mark_done' ||
-              response.actionId == 'mark_missed')) {
+      if (response.id != null) {
         await NotificationService.cancel(response.id!);
       }
     }
@@ -75,6 +76,8 @@ void notificationTapBackground(NotificationResponse response) async {
     debugPrint('Background notification isolate failed: $error');
     debugPrintStack(stackTrace: stackTrace);
 
+    // Ensure a processing notification cannot remain stranded after a failure.
+    await NotificationService.cancel(999);
     await NotificationService.showPersistentInputNotification(isHeadless: true);
     await NotificationService.showIsolateCrash(error.toString());
   }
@@ -201,7 +204,7 @@ class NotificationService {
     );
 
     await _notifications.show(
-      0,
+      999,
       'Processing Command...',
       '"$input"',
       const NotificationDetails(android: androidDetails),
