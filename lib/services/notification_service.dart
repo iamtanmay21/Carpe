@@ -23,6 +23,11 @@ void notificationTapBackground(NotificationResponse response) async {
       final result =
           await AssistantExecutor.instance.executeVoiceCommand(response.input!);
 
+      // Wait for Android 12 to finish destroying the old notification via the
+      // plugin's native auto-cancel.
+      await Future.delayed(const Duration(milliseconds: 500));
+
+
       // Cleanly redraw the persistent notification and show feedback.
       await NotificationService.showPersistentInputNotification(isHeadless: true);
       await NotificationService.showAssistantFeedback(result);
@@ -138,7 +143,6 @@ class NotificationService {
         ),
       ],
       allowGeneratedReplies: true,
-      cancelNotification: false,
     );
 
     const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
