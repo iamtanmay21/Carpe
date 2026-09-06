@@ -17,74 +17,29 @@ void notificationTapBackground(NotificationResponse response) async {
   try {
     DartPluginRegistrant.ensureInitialized();
     await NotificationService.initialize(isHeadless: true);
-    await DatabaseHelper.instance.database;
 
-    if (response.actionId == 'reply_action_v2' && response.input != null) {
-      try {
-        await NotificationService._notifications.show(
-          901,
-          'Diag 1',
-          'Isolate triggered',
-          const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'task_reminders',
-              'Task Reminders',
-              importance: Importance.max,
-            ),
-          ),
-        );
+    if ((response.actionId == 'reply_action' ||
+            response.actionId == 'reply_action_v2') &&
+        response.input != null) {
+      final userInput = response.input!;
 
-        final result =
-            await AssistantExecutor.instance.executeVoiceCommand(response.input!);
+      // Immediately acknowledge the action so Android can release the input UI.
+      await NotificationService.showProcessingNotification(userInput);
 
-        await NotificationService._notifications.show(
-          902,
-          'Diag 2',
-          'Command executed',
-          const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'task_reminders',
-              'Task Reminders',
-              importance: Importance.max,
-            ),
-          ),
-        );
+      // Defer database and NLP initialization until after the acknowledgement.
+      await DatabaseHelper.instance.database;
+      final result =
+          await AssistantExecutor.instance.executeVoiceCommand(userInput);
 
-        await NotificationService.showPersistentInputNotification(isHeadless: true);
-
-        await NotificationService._notifications.show(
-          903,
-          'Diag 3',
-          'Redraw requested',
-          const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'task_reminders',
-              'Task Reminders',
-              importance: Importance.max,
-            ),
-          ),
-        );
-
-        await NotificationService.showAssistantFeedback(result);
-      } catch (e) {
-        await NotificationService._notifications.show(
-          999,
-          'Diag Error',
-          e.toString(),
-          const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'task_reminders',
-              'Task Reminders',
-              importance: Importance.max,
-            ),
-          ),
-        );
-      }
+      await NotificationService.showPersistentInputNotification(isHeadless: true);
+      await NotificationService.showAssistantFeedback(result);
     }
 
     final payload = response.payload;
     if (payload != null && payload.startsWith('task_')) {
       final taskId = payload.replaceFirst('task_', '');
+
+      await DatabaseHelper.instance.database;
 
       if (response.actionId == 'mark_done') {
         await DatabaseHelper.instance.updateTaskStatus(taskId, 'COMPLETED');
@@ -101,6 +56,8 @@ void notificationTapBackground(NotificationResponse response) async {
   } catch (error, stackTrace) {
     debugPrint('Background notification isolate failed: $error');
     debugPrintStack(stackTrace: stackTrace);
+
+    await NotificationService.showPersistentInputNotification(isHeadless: true);
     await NotificationService.showIsolateCrash(error.toString());
   }
 }
@@ -184,7 +141,7 @@ class NotificationService {
     }
 
     const AndroidNotificationAction replyAction = AndroidNotificationAction(
-      'reply_action_v2',
+      'reply_action',
       'Add Task',
       inputs: [
         AndroidNotificationActionInput(
@@ -209,6 +166,26 @@ class NotificationService {
       0,
       'Carpe Diem',
       'What needs to be done?',
+      const NotificationDetails(android: androidDetails),
+    );
+  }
+
+  static Future<void> showProcessingNotification(String input) async {
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'persistent_channel',
+      'Assistant Overlay',
+      importance: Importance.low,
+      priority: Priority.low,
+      ongoing: true,
+      autoCancel: false,
+      showProgress: true,
+      indeterminate: true,
+    );
+
+    await _notifications.show(
+      0,
+      'Processing Command...',
+      '"$input"',
       const NotificationDetails(android: androidDetails),
     );
   }
