@@ -19,13 +19,14 @@ void notificationTapBackground(NotificationResponse response) async {
     await NotificationService.initialize(isHeadless: true);
     await DatabaseHelper.instance.database;
 
-    if (response.actionId == 'reply_action' && response.input != null) {
+    if (response.actionId == 'reply_action_v2' && response.input != null) {
       final result =
           await AssistantExecutor.instance.executeVoiceCommand(response.input!);
 
       // Wait for Android 12 to finish destroying the old notification via the
       // plugin's native auto-cancel.
       await Future.delayed(const Duration(milliseconds: 500));
+
 
       // Cleanly redraw the persistent notification and show feedback.
       await NotificationService.showPersistentInputNotification(isHeadless: true);
@@ -134,7 +135,7 @@ class NotificationService {
     }
 
     const AndroidNotificationAction replyAction = AndroidNotificationAction(
-      'reply_action',
+      'reply_action_v2',
       'Add Task',
       inputs: [
         AndroidNotificationActionInput(
