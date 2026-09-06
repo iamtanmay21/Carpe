@@ -22,8 +22,13 @@ void notificationTapBackground(NotificationResponse response) async {
     if (response.actionId == 'reply_action' && response.input != null) {
       final result =
           await AssistantExecutor.instance.executeVoiceCommand(response.input!);
-      // Re-post the ongoing notification before showing feedback. Android uses
-      // this replacement to dismiss the RemoteInput UI and its submitted text.
+      // Clear the active RemoteInput OS animation
+      await NotificationService.cancel(0);
+
+      // Pause to allow the Android UI to reset the notification shade
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      // Cleanly repost the persistent notification
       await NotificationService.showPersistentInputNotification(isHeadless: true);
       await NotificationService.showAssistantFeedback(result);
     }

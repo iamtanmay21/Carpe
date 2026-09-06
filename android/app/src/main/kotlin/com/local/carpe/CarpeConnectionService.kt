@@ -208,11 +208,23 @@ class CarpeConnection(
 
             // Trigger Missed Task Notification
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            val iconResId = context.resources.getIdentifier("ic_notification", "drawable", context.packageName)
+            val smallIconId = if (iconResId != 0) iconResId else android.R.drawable.ic_dialog_info
+
+            val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+            val pendingIntent = android.app.PendingIntent.getActivity(
+                context,
+                0,
+                launchIntent,
+                android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
+            )
+
             val builder = android.app.Notification.Builder(context, "task_reminders")
-                .setSmallIcon(context.applicationInfo.icon)
+                .setSmallIcon(smallIconId)
                 .setContentTitle("Missed Task")
                 .setContentText(name)
                 .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
             notificationManager.notify(System.currentTimeMillis().toInt(), builder.build())
         }
         setDisconnected(DisconnectCause(DisconnectCause.REJECTED))
