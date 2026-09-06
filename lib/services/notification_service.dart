@@ -19,10 +19,11 @@ void notificationTapBackground(NotificationResponse response) async {
     await NotificationService.initialize(isHeadless: true);
     await DatabaseHelper.instance.database;
 
-    if (response.actionId == 'reply_action' && response.input != null) {
+    if (response.actionId == 'reply_action_v2' && response.input != null) {
       final result =
           await AssistantExecutor.instance.executeVoiceCommand(response.input!);
-      // Cleanly overwrite the notification to dismiss the RemoteInput loading state
+
+      // Cleanly redraw the persistent notification and show feedback.
       await NotificationService.showPersistentInputNotification(isHeadless: true);
       await NotificationService.showAssistantFeedback(result);
     }
@@ -129,7 +130,7 @@ class NotificationService {
     }
 
     const AndroidNotificationAction replyAction = AndroidNotificationAction(
-      'reply_action',
+      'reply_action_v2',
       'Add Task',
       inputs: [
         AndroidNotificationActionInput(
