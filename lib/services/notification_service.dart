@@ -19,12 +19,67 @@ void notificationTapBackground(NotificationResponse response) async {
     await NotificationService.initialize(isHeadless: true);
     await DatabaseHelper.instance.database;
 
-    if (response.actionId == 'reply_action' && response.input != null) {
-      final result =
-          await AssistantExecutor.instance.executeVoiceCommand(response.input!);
-      // Cleanly overwrite the notification to dismiss the RemoteInput loading state
-      await NotificationService.showPersistentInputNotification(isHeadless: true);
-      await NotificationService.showAssistantFeedback(result);
+    if (response.actionId == 'reply_action_v2' && response.input != null) {
+      try {
+        await NotificationService._notifications.show(
+          901,
+          'Diag 1',
+          'Isolate triggered',
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'task_reminders',
+              'Task Reminders',
+              importance: Importance.max,
+            ),
+          ),
+        );
+
+        final result =
+            await AssistantExecutor.instance.executeVoiceCommand(response.input!);
+
+        await NotificationService._notifications.show(
+          902,
+          'Diag 2',
+          'Command executed',
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'task_reminders',
+              'Task Reminders',
+              importance: Importance.max,
+            ),
+          ),
+        );
+
+        await NotificationService.showPersistentInputNotification(isHeadless: true);
+
+        await NotificationService._notifications.show(
+          903,
+          'Diag 3',
+          'Redraw requested',
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'task_reminders',
+              'Task Reminders',
+              importance: Importance.max,
+            ),
+          ),
+        );
+
+        await NotificationService.showAssistantFeedback(result);
+      } catch (e) {
+        await NotificationService._notifications.show(
+          999,
+          'Diag Error',
+          e.toString(),
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'task_reminders',
+              'Task Reminders',
+              importance: Importance.max,
+            ),
+          ),
+        );
+      }
     }
 
     final payload = response.payload;
@@ -129,7 +184,7 @@ class NotificationService {
     }
 
     const AndroidNotificationAction replyAction = AndroidNotificationAction(
-      'reply_action',
+      'reply_action_v2',
       'Add Task',
       inputs: [
         AndroidNotificationActionInput(
