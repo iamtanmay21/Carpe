@@ -22,13 +22,7 @@ void notificationTapBackground(NotificationResponse response) async {
     if (response.actionId == 'reply_action' && response.input != null) {
       final result =
           await AssistantExecutor.instance.executeVoiceCommand(response.input!);
-      // Clear the active RemoteInput OS animation
-      await NotificationService.cancel(0);
-
-      // Pause to allow the Android UI to reset the notification shade
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      // Cleanly repost the persistent notification
+      // Cleanly overwrite the notification to dismiss the RemoteInput loading state
       await NotificationService.showPersistentInputNotification(isHeadless: true);
       await NotificationService.showAssistantFeedback(result);
     }
@@ -143,6 +137,7 @@ class NotificationService {
         ),
       ],
       allowGeneratedReplies: true,
+      cancelNotification: false,
     );
 
     const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
