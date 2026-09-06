@@ -12,27 +12,44 @@ import '../models/execution_result.dart';
 
 @pragma('vm:entry-point')
 void notificationTapBackground(NotificationResponse response) async {
+  void trace(String step) {
+    debugPrint('[CARPE_TRACE ${DateTime.now().toIso8601String()}] $step');
+  }
+
+  trace('1. Background callback entered (actionId: ${response.actionId})');
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
+    trace('2. DartPluginRegistrant initializing');
     DartPluginRegistrant.ensureInitialized();
+
+    trace('3. NotificationService initializing');
     await NotificationService.initialize(isHeadless: true);
 
     if ((response.actionId == 'reply_action' ||
             response.actionId == 'reply_action_v2') &&
         response.input != null) {
       final userInput = response.input!;
+      trace('4. RemoteInput received: "$userInput"');
 
       // Immediately acknowledge the action so Android can release the input UI.
+      trace('5. Showing Processing notification');
       await NotificationService.showProcessingNotification(userInput);
 
       // Defer database and NLP initialization until after the acknowledgement.
+      trace('6. Loading database');
       await DatabaseHelper.instance.database;
+
+      trace('7. Executing assistant command');
       final result =
           await AssistantExecutor.instance.executeVoiceCommand(userInput);
 
+      trace('8. Reposting persistent notification');
       await NotificationService.showPersistentInputNotification(isHeadless: true);
+
+      trace('9. Showing assistant feedback');
       await NotificationService.showAssistantFeedback(result);
+      trace('10. Background sequence completed successfully');
     }
 
     final payload = response.payload;
@@ -54,6 +71,7 @@ void notificationTapBackground(NotificationResponse response) async {
       }
     }
   } catch (error, stackTrace) {
+    trace('CRASH in isolate: $error');
     debugPrint('Background notification isolate failed: $error');
     debugPrintStack(stackTrace: stackTrace);
 
@@ -149,7 +167,7 @@ class NotificationService {
         ),
       ],
       allowGeneratedReplies: true,
-      cancelNotification: false,
+      cancelNotification: true,
     );
 
     const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
