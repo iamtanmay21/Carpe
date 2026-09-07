@@ -58,7 +58,14 @@ class _QuickCaptureOverlayState extends State<QuickCaptureOverlay> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _focusNode.requestFocus());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 250), () {
+        if (mounted) {
+          _focusNode.requestFocus();
+          SystemChannels.textInput.invokeMethod('TextInput.show');
+        }
+      });
+    });
   }
 
   @override
@@ -86,6 +93,7 @@ class _QuickCaptureOverlayState extends State<QuickCaptureOverlay> {
           child: TextField(
             controller: _controller,
             focusNode: _focusNode,
+            autofocus: true,
             textInputAction: TextInputAction.send,
             onSubmitted: _submit,
             decoration: InputDecoration(
