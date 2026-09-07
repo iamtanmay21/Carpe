@@ -16,24 +16,30 @@ object QuickCaptureNotification {
     fun showReady(context: Context) {
         notificationManager(context).notify(
             QuickCaptureContract.NOTIFICATION_ID,
-            builder(context)
-                .setContentTitle("Carpe Diem quick capture")
-                .setContentText("Reply here to create a task")
-                .addAction(replyAction(context))
-                .build(),
+            readyNotification(context),
         )
     }
 
     fun showProcessing(context: Context) {
         notificationManager(context).notify(
             QuickCaptureContract.NOTIFICATION_ID,
-            builder(context)
-                .setContentTitle("Carpe Diem quick capture")
-                .setContentText("Adding your task…")
-                .setProgress(0, 0, true)
-                .build(),
+            processingNotification(context),
         )
     }
+
+    /** Kept visible to instrumentation tests of the notification state machine. */
+    internal fun readyNotification(context: Context) = builder(context)
+        .setContentTitle("Carpe Diem quick capture")
+        .setContentText("Reply here to create a task")
+        .addAction(replyAction(context))
+        .build()
+
+    /** Processing intentionally has no reply action until work completes. */
+    internal fun processingNotification(context: Context) = builder(context)
+        .setContentTitle("Carpe Diem quick capture")
+        .setContentText("Adding your task…")
+        .setProgress(0, 0, true)
+        .build()
 
     /**
      * Restores inline capture while making a background delivery problem visible

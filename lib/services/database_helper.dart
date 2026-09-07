@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'dart:io' as io;
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart'; // <-- ADDED: Fixes the 'Sqflite' getter error
@@ -14,7 +14,25 @@ class DatabaseHelper {
   DatabaseHelper.forTesting({required DatabaseFactory factory, required String path})
       : _factoryOverride = factory,
         _pathOverride = path;
-  static final DatabaseHelper instance = DatabaseHelper._privateConstructor();
+  static DatabaseHelper _instance = DatabaseHelper._privateConstructor();
+
+  /// The process-wide database used by application services.
+  static DatabaseHelper get instance => _instance;
+
+  /// Replaces the process-wide database for an isolated test.
+  ///
+  /// Production code must not call this; it exists so a MethodChannel handler
+  /// can be exercised against a temporary SQLite file rather than the app's
+  /// durable database.
+  @visibleForTesting
+  static void installForTesting(DatabaseHelper helper) {
+    _instance = helper;
+  }
+
+  @visibleForTesting
+  static void resetForTesting() {
+    _instance = DatabaseHelper._privateConstructor();
+  }
 
   final DatabaseFactory? _factoryOverride;
   final String? _pathOverride;

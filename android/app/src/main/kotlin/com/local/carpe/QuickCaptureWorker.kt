@@ -54,7 +54,7 @@ class QuickCaptureWorker(
         }
     }
 
-    private fun DartResponse.toWorkResult(context: Context): Result = when {
+    internal fun DartResponse.toWorkResult(context: Context): Result = when {
         success -> {
             QuickCaptureNotification.showReady(context)
             Result.success()
@@ -77,7 +77,7 @@ class QuickCaptureWorker(
     }
 }
 
-private data class DartResponse(val success: Boolean, val retryable: Boolean, val message: String)
+internal data class DartResponse(val success: Boolean, val retryable: Boolean, val message: String)
 
 /** One-use bridge: the engine is always destroyed after Dart's explicit result. */
 private class HeadlessQuickCaptureBridge(private val context: Context) {

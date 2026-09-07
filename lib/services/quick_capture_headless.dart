@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 import 'assistant_executor.dart';
 import 'database_helper.dart';
@@ -33,11 +34,16 @@ void installQuickCaptureMethodChannelHandler() {
         'Unsupported quick capture method: ${call.method}',
       );
     }
-    return _processQuickCapture(call.arguments);
+    return processQuickCapture(call.arguments);
   });
 }
 
-Future<Map<String, Object>> _processQuickCapture(Object? arguments) async {
+/// Processes one native quick-capture payload.
+///
+/// Public for the platform-channel integration test; callers should normally
+/// install [installQuickCaptureMethodChannelHandler] instead.
+@visibleForTesting
+Future<Map<String, Object>> processQuickCapture(Object? arguments) async {
   final request = _parseRequest(arguments);
   if (request == null) return _invalidRequestResponse();
 
