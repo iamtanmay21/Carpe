@@ -8,10 +8,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'assistant_executor.dart';
 import 'database_helper.dart';
-
-const String _notificationChannelId = 'carpe_direct_reply';
-const int _notificationId = 4100;
-const String _directReplyActionId = 'carpe_direct_reply_action';
+import 'quick_capture_contract.dart';
 
 final FlutterLocalNotificationsPlugin _notifications =
     FlutterLocalNotificationsPlugin();
@@ -29,10 +26,10 @@ Future<void> initializeBackgroundDirectReplyNotification() async {
       onStart: directReplyBackgroundServiceEntryPoint,
       autoStart: true,
       isForegroundMode: true,
-      notificationChannelId: _notificationChannelId,
+      notificationChannelId: QuickCaptureContract.notificationChannelId,
       initialNotificationTitle: 'Carpe Diem quick capture',
       initialNotificationContent: 'Reply here to create a task',
-      foregroundServiceNotificationId: _notificationId,
+      foregroundServiceNotificationId: QuickCaptureContract.notificationId,
     ),
     iosConfiguration: IosConfiguration(autoStart: false),
   );
@@ -76,7 +73,7 @@ Future<void> _initializeLocalNotifications() async {
       AndroidFlutterLocalNotificationsPlugin>();
   await androidPlugin?.createNotificationChannel(
     const AndroidNotificationChannel(
-      _notificationChannelId,
+      QuickCaptureContract.notificationChannelId,
       'Carpe direct reply',
       description: 'Persistent notification for background task capture.',
       importance: Importance.low,
@@ -86,7 +83,7 @@ Future<void> _initializeLocalNotifications() async {
 
 Future<void> showDirectReplyNotification() async {
   const androidDetails = AndroidNotificationDetails(
-    _notificationChannelId,
+    QuickCaptureContract.notificationChannelId,
     'Carpe direct reply',
     channelDescription: 'Persistent notification for background task capture.',
     importance: Importance.low,
@@ -97,7 +94,7 @@ Future<void> showDirectReplyNotification() async {
     category: AndroidNotificationCategory.service,
     actions: <AndroidNotificationAction>[
       AndroidNotificationAction(
-        _directReplyActionId,
+        QuickCaptureContract.replyActionId,
         'Add task',
         showsUserInterface: false,
         inputs: <AndroidNotificationActionInput>[
@@ -111,7 +108,7 @@ Future<void> showDirectReplyNotification() async {
   );
 
   await _notifications.show(
-    _notificationId,
+    QuickCaptureContract.notificationId,
     'Carpe Diem quick capture',
     'Reply here to create a task',
     const NotificationDetails(android: androidDetails),
@@ -122,7 +119,7 @@ Future<void> showDirectReplyNotification() async {
 /// NotificationCompat.Action RemoteInput result while the app UI is absent.
 @pragma('vm:entry-point')
 Future<void> notificationDirectReplyCallback(NotificationResponse response) async {
-  if (response.actionId != _directReplyActionId) return;
+  if (response.actionId != QuickCaptureContract.replyActionId) return;
 
   final text = response.input?.trim();
   if (text == null || text.isEmpty) return;
