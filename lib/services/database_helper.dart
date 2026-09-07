@@ -8,7 +8,11 @@ import 'package:path_provider/path_provider.dart';
 import '../data/models/task.dart'; // Ensure this points to your updated Task model
 
 class DatabaseHelper {
-  DatabaseHelper._privateConstructor();
+  DatabaseHelper._privateConstructor({
+    DatabaseFactory? factoryOverride,
+    String? pathOverride,
+  })  : _factoryOverride = factoryOverride,
+        _pathOverride = pathOverride;
 
   /// Allows focused database tests to use an isolated factory and path.
   DatabaseHelper.forTesting({required DatabaseFactory factory, required String path})
