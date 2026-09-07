@@ -35,6 +35,21 @@ object QuickCaptureNotification {
         )
     }
 
+    /**
+     * Restores inline capture while making a background delivery problem visible
+     * without opening the app or producing a disruptive alert.
+     */
+    fun showCaptureMessage(context: Context, message: String) {
+        notificationManager(context).notify(
+            QuickCaptureContract.NOTIFICATION_ID,
+            builder(context)
+                .setContentTitle("Carpe Diem quick capture")
+                .setContentText(message)
+                .addAction(replyAction(context))
+                .build(),
+        )
+    }
+
     private fun builder(context: Context): NotificationCompat.Builder {
         createChannel(context)
         val iconId = context.resources.getIdentifier("ic_notification", "drawable", context.packageName)

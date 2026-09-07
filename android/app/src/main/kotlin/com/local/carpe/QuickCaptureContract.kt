@@ -24,6 +24,7 @@ object QuickCaptureContract {
     const val WORK_INPUT_REQUEST_ID = "quick_capture_request_id"
     const val WORK_INPUT_TEXT = "quick_capture_text"
     const val WORK_INPUT_SUBMITTED_AT = "quick_capture_submitted_at"
+    const val WORK_INPUT_METADATA = "quick_capture_metadata"
     const val MAX_REPLY_LENGTH = 1_000
 
     const val METHOD_CHANNEL_NAME = "com.local.carpe/quick_capture"
@@ -32,6 +33,9 @@ object QuickCaptureContract {
     const val ARG_REQUEST_ID = "requestId"
     const val ARG_TEXT = "text"
     const val ARG_SUBMITTED_AT = "submittedAt"
+    const val ARG_METADATA = "metadata"
+
+    const val METHOD_DART_READY = "quickCaptureReady"
 
     const val RESPONSE_SUCCESS = "success"
     const val RESPONSE_RETRYABLE = "retryable"
@@ -41,6 +45,9 @@ object QuickCaptureContract {
 
     const val STATE_READY = "ready"
     const val STATE_PROCESSING = "processing"
+
+    /** Stable WorkManager identity for an idempotent Dart request. */
+    fun workName(requestId: String): String = "quick-capture-$requestId"
 }
 
 /**
@@ -53,10 +60,12 @@ data class QuickCaptureRequest(
     val requestId: String,
     val text: String,
     val submittedAt: Long,
+    val metadata: String,
 ) {
     fun toMethodChannelArguments(): Map<String, Any> = mapOf(
         QuickCaptureContract.ARG_REQUEST_ID to requestId,
         QuickCaptureContract.ARG_TEXT to text,
         QuickCaptureContract.ARG_SUBMITTED_AT to submittedAt,
+        QuickCaptureContract.ARG_METADATA to metadata,
     )
 }
