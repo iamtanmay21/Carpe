@@ -1,19 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/theme.dart';
 import 'ui/dashboard_screen.dart';
 import 'ui/permissions_firewall.dart';
-import 'services/notification_service.dart';
+import 'services/task_reminder_notification_service.dart';
 import 'services/assistant_executor.dart';
 import 'services/quick_capture_headless.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   installQuickCaptureMethodChannelHandler();
-  await NotificationService.initialize();
-  await const MethodChannel('com.local.carpe/overlay')
-      .invokeMethod<void>('showPersistentNotification');
+  await TaskReminderNotificationService.initialize();
 
   final prefs = await SharedPreferences.getInstance();
   final bool setupDone = prefs.getBool('firewall_setup_completed') ?? false;
