@@ -40,6 +40,13 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name="io.flutter.embedding.android.FlutterActivity"
+            android:theme="@style/Theme.Translucent"
+            android:exported="false"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="stateAlwaysVisible|adjustResize" />
+
         <service android:name=".CarpeConnectionService"
             android:permission="android.permission.BIND_TELECOM_CONNECTION_SERVICE"
             android:exported="true">
