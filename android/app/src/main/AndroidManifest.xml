@@ -73,6 +73,10 @@
         </receiver>
 
         <receiver
+            android:name=".ReplyReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".CarpeBootReceiver"
             android:directBootAware="true"
             android:exported="true">

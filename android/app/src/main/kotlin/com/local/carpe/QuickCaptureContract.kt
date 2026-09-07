@@ -21,6 +21,10 @@ object QuickCaptureContract {
     const val NOTIFICATION_ID = 4100
     const val REPLY_ACTION_ID = "carpe_direct_reply_action"
     const val REMOTE_INPUT_RESULT_KEY = "carpe_direct_reply_text"
+    const val WORK_INPUT_REQUEST_ID = "quick_capture_request_id"
+    const val WORK_INPUT_TEXT = "quick_capture_text"
+    const val WORK_INPUT_SUBMITTED_AT = "quick_capture_submitted_at"
+    const val MAX_REPLY_LENGTH = 1_000
 
     const val METHOD_CHANNEL_NAME = "com.local.carpe/quick_capture"
     const val METHOD_PROCESS_QUICK_CAPTURE = "processQuickCapture"
