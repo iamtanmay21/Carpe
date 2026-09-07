@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import '../data/models/task.dart';
-import 'notification_service.dart';
+import 'task_reminder_notification_service.dart';
 
 class TelecomService {
   static const MethodChannel _channel = MethodChannel('com.local.carpe/telecom');
@@ -9,7 +9,7 @@ class TelecomService {
   static Future<void> scheduleNativeAlarm(Task task) async {
     // Only schedule a local notification for past-due or non-priority tasks.
     if (task.dueDateTime.isBefore(DateTime.now()) || task.isNonPriority) {
-      await NotificationService.scheduleTaskReminder(task);
+      await TaskReminderNotificationService.scheduleTaskReminder(task);
       return;
     }
 

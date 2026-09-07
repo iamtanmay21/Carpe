@@ -1,6 +1,5 @@
 package com.local.carpe
 
-import android.content.Intent
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
@@ -24,18 +23,9 @@ class QuickCaptureTileService : TileService() {
         tile.updateTile()
     }
 
-    // Called when the user taps on your tile
+    /** Refreshes the native inline-reply notification without opening Flutter. */
     override fun onClick() {
         super.onClick()
-        
-        val intent = Intent(this, MainActivity::class.java).apply {
-            // Starting with Android API 28, this flag is required to launch from a Tile
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            putExtra("OPEN_CAPTURE_SHEET", true)
-        }
-        
-        // Starts the activity while collapsing the Quick Settings panel
-        startActivityAndCollapse(intent)
+        QuickCaptureNotification.showReady(this)
     }
 }
