@@ -30,6 +30,9 @@ void main() {
     expect(await databases.first.rawQuery('PRAGMA busy_timeout'), [
       {'timeout': 5000},
     ]);
+    expect(await databases.first.rawQuery('PRAGMA journal_mode'), [
+      {'journal_mode': 'wal'},
+    ]);
   });
 
   test('duplicate quick capture request IDs have one durable claim', () async {

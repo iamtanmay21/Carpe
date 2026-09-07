@@ -16,13 +16,7 @@ class ReplyReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != QuickCaptureContract.REPLY_ACTION_ID) return
 
-        val reply = RemoteInput.getResultsFromIntent(intent)
-            ?.getCharSequence(QuickCaptureContract.REMOTE_INPUT_RESULT_KEY)
-            ?.toString()
-            ?.trim()
-            ?.take(QuickCaptureContract.MAX_REPLY_LENGTH)
-            ?: return
-        if (reply.isEmpty()) return
+        val reply = extractQuickCaptureReply(intent) ?: return
 
         val requestId = UUID.randomUUID().toString()
         val submittedAt = System.currentTimeMillis()
@@ -49,3 +43,12 @@ class ReplyReceiver : BroadcastReceiver() {
         )
     }
 }
+
+/** Returns a bounded, non-blank inline reply, or null for malformed input. */
+internal fun extractQuickCaptureReply(intent: Intent): String? =
+    RemoteInput.getResultsFromIntent(intent)
+        ?.getCharSequence(QuickCaptureContract.REMOTE_INPUT_RESULT_KEY)
+        ?.toString()
+        ?.trim()
+        ?.take(QuickCaptureContract.MAX_REPLY_LENGTH)
+        ?.takeIf { it.isNotEmpty() }
