@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io' as io;
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart'; // <-- ADDED: Fixes the 'Sqflite' getter error
@@ -9,54 +9,63 @@ import '../data/models/task.dart'; // Ensure this points to your updated Task mo
 
 class DatabaseHelper {
   DatabaseHelper._privateConstructor();
+
+  /// Allows focused database tests to use an isolated factory and path.
+  DatabaseHelper.forTesting({required DatabaseFactory factory, required String path})
+      : _factoryOverride = factory,
+        _pathOverride = path;
   static final DatabaseHelper instance = DatabaseHelper._privateConstructor();
 
-  static Database? _database;
+  final DatabaseFactory? _factoryOverride;
+  final String? _pathOverride;
+  Future<Database>? _databaseFuture;
 
-  Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDatabase();
-    return _database!;
+  /// A single-flight open prevents callers in one Dart engine racing to open
+  /// the same file and configure separate connections.
+  Future<Database> get database {
+    return _databaseFuture ??= _initDatabase();
   }
 
   Future<Database> _initDatabase() async {
-    String dbPath = 'carpe_diem.db';
+    String dbPath = _pathOverride ?? 'carpe_diem.db';
+    final factory = _factoryOverride ?? databaseFactory;
     if (kIsWeb) {
-      databaseFactory = databaseFactoryFfiWeb;
+      // Browser builds have no platform sqflite implementation.
+      dbPath = _pathOverride ?? dbPath;
     } else {
-      // 1. Optimize startup: Only invoke FFI on supported platforms to prevent long load times
-      if (io.Platform.isAndroid || io.Platform.isWindows || io.Platform.isLinux) {
+      // Android and iOS must retain sqflite's platform factory. FFI is only
+      // needed by desktop hosts, where sqflite has no native implementation.
+      if (_factoryOverride == null &&
+          (io.Platform.isWindows || io.Platform.isLinux || io.Platform.isMacOS)) {
         sqfliteFfiInit();
-        databaseFactory = databaseFactoryFfi;
+        return _openDatabase(databaseFactoryFfi, _pathOverride ?? await _databasePath());
       }
-      // 2. UNIFIED DB NAME: 'carpe_diem.db'
-      // This perfectly matches the Kotlin native alarm system and the UI expectations.
-      final io.Directory appDocDir = await getApplicationDocumentsDirectory();
-      dbPath = join(appDocDir.path, 'carpe_diem.db');
+      dbPath = _pathOverride ?? await _databasePath();
     }
+    return _openDatabase(kIsWeb ? databaseFactoryFfiWeb : factory, dbPath);
+  }
 
-    final db = await databaseFactory.openDatabase(
+  Future<String> _databasePath() async {
+    final io.Directory appDocDir = await getApplicationDocumentsDirectory();
+    return join(appDocDir.path, 'carpe_diem.db');
+  }
+
+  Future<Database> _openDatabase(DatabaseFactory factory, String dbPath) async {
+    return factory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 3,
+        version: 4,
+        onConfigure: _onConfigure,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       ),
     );
+  }
 
-    // Temporary diagnostics: retain these logs until Flutter and native paths
-    // and connection-level SQLite settings have been compared on a device.
-    debugPrint('[DatabaseDiagnostics][Flutter] path=${db.path}');
-    debugPrint(
-      '[DatabaseDiagnostics][Flutter] journal_mode='
-      '${await db.rawQuery('PRAGMA journal_mode;')}',
-    );
-    debugPrint(
-      '[DatabaseDiagnostics][Flutter] busy_timeout='
-      '${await db.rawQuery('PRAGMA busy_timeout;')}',
-    );
-
-    return db;
+  Future<void> _onConfigure(Database db) async {
+    await db.execute('PRAGMA journal_mode=WAL');
+    await db.execute('PRAGMA busy_timeout=5000');
+    await db.execute('PRAGMA foreign_keys=ON');
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -111,6 +120,7 @@ class DatabaseHelper {
         INSERT INTO tasks_fts(rowid, title) VALUES (new.rowid, new.title);
       END;
     ''');
+    await _createQuickCaptureRequestsTable(db);
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -136,6 +146,55 @@ class DatabaseHelper {
         END;
       ''');
     }
+    if (oldVersion < 4) {
+      await _createQuickCaptureRequestsTable(db);
+    }
+  }
+
+  Future<void> _createQuickCaptureRequestsTable(DatabaseExecutor db) {
+    return db.execute('''
+      CREATE TABLE IF NOT EXISTS quick_capture_requests (
+        request_id TEXT PRIMARY KEY,
+        status TEXT NOT NULL,
+        result_task_ids TEXT,
+        result_message TEXT,
+        created_at INTEGER NOT NULL,
+        completed_at INTEGER
+      )
+    ''');
+  }
+
+  /// Atomically claims an idempotency key. `false` means another engine has
+  /// already started or completed the request.
+  Future<bool> claimQuickCaptureRequest(String requestId) async {
+    final db = await database;
+    return db.transaction((txn) async {
+      final inserted = await txn.insert(
+        'quick_capture_requests',
+        {'request_id': requestId, 'status': 'PROCESSING', 'created_at': DateTime.now().millisecondsSinceEpoch},
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+      return inserted == 1;
+    });
+  }
+
+  Future<Map<String, Object?>?> getQuickCaptureRequest(String requestId) async {
+    final rows = await (await database).query('quick_capture_requests', where: 'request_id = ?', whereArgs: [requestId]);
+    return rows.isEmpty ? null : Map<String, Object?>.from(rows.first);
+  }
+
+  Future<void> completeQuickCaptureRequest(
+    String requestId, {
+    required String status,
+    String? taskIds,
+    required String message,
+  }) async {
+    await (await database).update('quick_capture_requests', {
+      'status': status,
+      'result_task_ids': taskIds,
+      'result_message': message,
+      'completed_at': DateTime.now().millisecondsSinceEpoch,
+    }, where: 'request_id = ?', whereArgs: [requestId]);
   }
 
   // Section divider
