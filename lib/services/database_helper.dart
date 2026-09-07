@@ -164,17 +164,36 @@ class DatabaseHelper {
     ''');
   }
 
-  /// Atomically claims an idempotency key. `false` means another engine has
-  /// already started or completed the request.
+  /// Atomically claims an idempotency key for processing.
+  ///
+  /// A retryable outcome can be claimed again, while processing, completed,
+  /// and terminally failed requests remain owned by their existing outcome.
   Future<bool> claimQuickCaptureRequest(String requestId) async {
     final db = await database;
     return db.transaction((txn) async {
-      final inserted = await txn.insert(
+      final existing = await txn.query(
         'quick_capture_requests',
-        {'request_id': requestId, 'status': 'PROCESSING', 'created_at': DateTime.now().millisecondsSinceEpoch},
-        conflictAlgorithm: ConflictAlgorithm.ignore,
+        columns: const ['status'],
+        where: 'request_id = ?',
+        whereArgs: [requestId],
       );
-      return inserted == 1;
+      if (existing.isEmpty) {
+        await txn.insert('quick_capture_requests', {
+          'request_id': requestId,
+          'status': 'PROCESSING',
+          'created_at': DateTime.now().millisecondsSinceEpoch,
+        });
+        return true;
+      }
+
+      if (existing.single['status'] != 'RETRYABLE') return false;
+      return await txn.update(
+            'quick_capture_requests',
+            {'status': 'PROCESSING', 'completed_at': null},
+            where: 'request_id = ? AND status = ?',
+            whereArgs: [requestId, 'RETRYABLE'],
+          ) ==
+          1;
     });
   }
 

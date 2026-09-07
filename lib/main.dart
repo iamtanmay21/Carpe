@@ -6,11 +6,11 @@ import 'ui/dashboard_screen.dart';
 import 'ui/permissions_firewall.dart';
 import 'services/notification_service.dart';
 import 'services/assistant_executor.dart';
-import 'services/quick_capture_contract.dart';
+import 'services/quick_capture_headless.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  _installQuickCaptureHandler();
+  installQuickCaptureMethodChannelHandler();
   await NotificationService.initialize();
   await const MethodChannel('com.local.carpe/overlay')
       .invokeMethod<void>('showPersistentNotification');
@@ -19,55 +19,6 @@ void main() async {
   final bool setupDone = prefs.getBool('firewall_setup_completed') ?? false;
 
   runApp(CarpeDiemApp(startAtDashboard: setupDone));
-}
-
-/// Entry point used by [QuickCaptureWorker]'s headless FlutterEngine.
-///
-/// Keep this free of UI setup and notification initialization: the worker needs
-/// a bounded bridge to Dart's existing execution and database ownership only.
-@pragma('vm:entry-point')
-void quickCaptureEntrypoint() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  _installQuickCaptureHandler();
-  await const MethodChannel(QuickCaptureContract.methodChannelName)
-      .invokeMethod<void>(QuickCaptureContract.dartReadyMethod);
-}
-
-void _installQuickCaptureHandler() {
-  const channel = MethodChannel(QuickCaptureContract.methodChannelName);
-  channel.setMethodCallHandler((call) async {
-    if (call.method != QuickCaptureContract.processQuickCaptureMethod) {
-      throw MissingPluginException('Unsupported quick capture method: ${call.method}');
-    }
-
-    final request = QuickCaptureRequest.fromMethodCall(
-      Map<Object?, Object?>.from(call.arguments as Map),
-    );
-    try {
-      final result = await AssistantExecutor.instance.executeVoiceCommand(
-        request.text,
-        referenceDate: request.submittedAt,
-        quickCaptureRequestId: request.requestId,
-      );
-      final taskIds = result.affectedTasks
-          .map((task) => task['id']?.toString())
-          .whereType<String>()
-          .toList();
-      return QuickCaptureResponse(
-        success: result.success,
-        retryable: !result.success,
-        message: result.feedbackMessage,
-        taskId: taskIds.length == 1 ? taskIds.single : null,
-        taskIds: taskIds.length > 1 ? taskIds : null,
-      ).toMethodChannelResult();
-    } catch (_) {
-      return const QuickCaptureResponse(
-        success: false,
-        retryable: true,
-        message: 'Quick capture could not be processed.',
-      ).toMethodChannelResult();
-    }
-  });
 }
 
 class CarpeDiemApp extends StatelessWidget {

@@ -102,7 +102,7 @@ private class HeadlessQuickCaptureBridge(private val context: Context) {
             engine.dartExecutor.executeDartEntrypoint(
                 DartExecutor.DartEntrypoint(
                     FlutterInjector.instance().flutterLoader().findAppBundlePath(),
-                    "quickCaptureEntrypoint",
+                    "quickCaptureHeadlessMain",
                 ),
             )
             withTimeout(READY_TIMEOUT_MS) { ready.await() }

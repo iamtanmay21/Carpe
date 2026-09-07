@@ -44,6 +44,21 @@ void main() {
     );
   });
 
+  test('retryable quick capture requests can be claimed again', () async {
+    expect(await helper.claimQuickCaptureRequest('retry-request'), isTrue);
+    await helper.completeQuickCaptureRequest(
+      'retry-request',
+      status: 'RETRYABLE',
+      message: 'Temporary failure.',
+    );
+
+    expect(await helper.claimQuickCaptureRequest('retry-request'), isTrue);
+    expect(
+      (await helper.getQuickCaptureRequest('retry-request'))?['status'],
+      'PROCESSING',
+    );
+  });
+
   test('concurrent foreground and headless writes mutate one task per request', () async {
     final headlessHelper = DatabaseHelper.forTesting(
       factory: databaseFactoryFfi,
