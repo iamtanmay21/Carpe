@@ -156,37 +156,32 @@ class NotificationService {
   }
 
   static Future<void> showPersistentInputNotification({bool isHeadless = false}) async {
-    final androidImplementation = _androidImplementation;
-    if (androidImplementation != null && !isHeadless) {
-      await _requestAndroidNotificationPermission(androidImplementation);
-    }
-
     const AndroidNotificationAction replyAction = AndroidNotificationAction(
-      'reply_action',
+      'reply_action_test',
       'Add Task',
       inputs: [
         AndroidNotificationActionInput(
-          label: 'e.g. Call mom at 7:30',
+          label: 'Type test task here...',
         ),
       ],
       allowGeneratedReplies: true,
-      cancelNotification: true,
+      cancelNotification: false, // Prevent plugin from deleting it on empty clicks
     );
 
     const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'persistent_channel',
-      'Assistant Overlay',
-      importance: Importance.low,
-      priority: Priority.low,
-      ongoing: true,
+      'ui_test_channel_v1', // BRAND NEW ID so Android doesn't use the old Low-Importance cache
+      'UI Test Channel',
+      importance: Importance.max, // Force MIUI to respect the UI overlay
+      priority: Priority.max,
+      ongoing: false, // Turn off persistent lock to test MIUI's keyboard rendering
       autoCancel: false,
       actions: [replyAction],
     );
 
     await _notifications.show(
-      0,
-      'Carpe Diem',
-      'What needs to be done?',
+      888, // Unique ID
+      'Carpe Diem UI Test',
+      'Can you open the keyboard?',
       const NotificationDetails(android: androidDetails),
     );
   }
