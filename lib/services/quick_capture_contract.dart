@@ -19,6 +19,11 @@ abstract final class QuickCaptureContract {
   static const String requestIdKey = 'requestId';
   static const String textKey = 'text';
   static const String submittedAtKey = 'submittedAt';
+  static const String metadataKey = 'metadata';
+
+  /// Dart invokes this on the shared channel once the headless isolate can
+  /// receive [processQuickCaptureMethod].
+  static const String dartReadyMethod = 'quickCaptureReady';
 
   static const String successKey = 'success';
   static const String retryableKey = 'retryable';
@@ -43,6 +48,7 @@ final class QuickCaptureRequest {
     required this.requestId,
     required this.text,
     required this.submittedAt,
+    this.metadata,
   });
 
   factory QuickCaptureRequest.fromMethodCall(Map<Object?, Object?> arguments) {
@@ -62,18 +68,26 @@ final class QuickCaptureRequest {
       requestId: requestId,
       text: text,
       submittedAt: DateTime.fromMillisecondsSinceEpoch(submittedAt.toInt()),
+      metadata: arguments[QuickCaptureContract.metadataKey] as String?,
     );
   }
 
   final String requestId;
   final String text;
   final DateTime submittedAt;
+  /// Opaque Android delivery context. It is intentionally not persisted by
+  /// Kotlin; Dart remains the only database owner.
+  final String? metadata;
 
-  Map<String, Object> toMethodChannelArguments() => <String, Object>{
-        QuickCaptureContract.requestIdKey: requestId,
-        QuickCaptureContract.textKey: text,
-        QuickCaptureContract.submittedAtKey: submittedAt.millisecondsSinceEpoch,
-      };
+  Map<String, Object> toMethodChannelArguments() {
+    final arguments = <String, Object>{
+      QuickCaptureContract.requestIdKey: requestId,
+      QuickCaptureContract.textKey: text,
+      QuickCaptureContract.submittedAtKey: submittedAt.millisecondsSinceEpoch,
+    };
+    if (metadata != null) arguments[QuickCaptureContract.metadataKey] = metadata!;
+    return arguments;
+  }
 }
 
 /// Structured response returned to Android after `processQuickCapture`.

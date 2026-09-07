@@ -21,6 +21,18 @@ void main() async {
   runApp(CarpeDiemApp(startAtDashboard: setupDone));
 }
 
+/// Entry point used by [QuickCaptureWorker]'s headless FlutterEngine.
+///
+/// Keep this free of UI setup and notification initialization: the worker needs
+/// a bounded bridge to Dart's existing execution and database ownership only.
+@pragma('vm:entry-point')
+void quickCaptureEntrypoint() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  _installQuickCaptureHandler();
+  await const MethodChannel(QuickCaptureContract.methodChannelName)
+      .invokeMethod<void>(QuickCaptureContract.dartReadyMethod);
+}
+
 void _installQuickCaptureHandler() {
   const channel = MethodChannel(QuickCaptureContract.methodChannelName);
   channel.setMethodCallHandler((call) async {

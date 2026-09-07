@@ -32,6 +32,9 @@ class ReplyReceiver : BroadcastReceiver() {
             .putString(QuickCaptureContract.WORK_INPUT_REQUEST_ID, requestId)
             .putString(QuickCaptureContract.WORK_INPUT_TEXT, reply)
             .putLong(QuickCaptureContract.WORK_INPUT_SUBMITTED_AT, submittedAt)
+            // Keep delivery context with the durable request. Dart may evolve
+            // this payload without Kotlin ever accessing its SQLite database.
+            .putString(QuickCaptureContract.WORK_INPUT_METADATA, "{\"source\":\"notification_reply\"}")
             .build()
         val request = OneTimeWorkRequestBuilder<QuickCaptureWorker>()
             .setInputData(input)
@@ -40,7 +43,7 @@ class ReplyReceiver : BroadcastReceiver() {
             .build()
 
         WorkManager.getInstance(context).enqueueUniqueWork(
-            "quick-capture-$requestId",
+            QuickCaptureContract.workName(requestId),
             ExistingWorkPolicy.KEEP,
             request,
         )
