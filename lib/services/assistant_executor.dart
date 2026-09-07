@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import '../models/intent_blueprint.dart';
@@ -14,7 +16,60 @@ class AssistantExecutor {
   AssistantExecutor._privateConstructor();
   static final AssistantExecutor instance = AssistantExecutor._privateConstructor();
 
-  Future<ExecutionResult> executeVoiceCommand(String rawTranscript, {DateTime? referenceDate}) async {
+  Future<ExecutionResult> executeVoiceCommand(
+    String rawTranscript, {
+    DateTime? referenceDate,
+    String? quickCaptureRequestId,
+  }) async {
+    if (quickCaptureRequestId == null) {
+      return _executeVoiceCommand(rawTranscript, referenceDate: referenceDate);
+    }
+
+    final database = DatabaseHelper.instance;
+    if (!await database.claimQuickCaptureRequest(quickCaptureRequestId)) {
+      final existing = await database.getQuickCaptureRequest(quickCaptureRequestId);
+      final taskIds = _taskIdsFromStoredResult(existing?['result_task_ids']);
+      return ExecutionResult(
+        rawTranscript: rawTranscript,
+        intent: CommandIntent.create,
+        success: existing?['status'] == 'COMPLETED',
+        feedbackMessage: existing?['result_message'] as String? ?? 'Quick capture is already being processed.',
+        affectedTasks: taskIds.map((id) => <String, dynamic>{'id': id}).toList(),
+        conflictingTasks: const [],
+        requiresUserClarification: false,
+      );
+    }
+
+    try {
+      final result = await _executeVoiceCommand(rawTranscript, referenceDate: referenceDate);
+      await database.completeQuickCaptureRequest(
+        quickCaptureRequestId,
+        status: 'COMPLETED',
+        taskIds: jsonEncode(result.affectedTasks.map((task) => task['id']?.toString()).whereType<String>().toList()),
+        message: result.feedbackMessage,
+      );
+      return result;
+    } catch (_) {
+      await database.completeQuickCaptureRequest(
+        quickCaptureRequestId,
+        status: 'FAILED',
+        message: 'Quick capture could not be completed.',
+      );
+      rethrow;
+    }
+  }
+
+  List<String> _taskIdsFromStoredResult(Object? stored) {
+    if (stored is! String) return const [];
+    try {
+      final decoded = jsonDecode(stored);
+      return decoded is List ? decoded.whereType<String>().toList() : const [];
+    } on FormatException {
+      return const [];
+    }
+  }
+
+  Future<ExecutionResult> _executeVoiceCommand(String rawTranscript, {DateTime? referenceDate}) async {
     final now = referenceDate ?? DateTime.now();
     // Strip seconds and milliseconds to guarantee alarms trigger exactly on the minute (00s)
     final ref = DateTime(now.year, now.month, now.day, now.hour, now.minute);
