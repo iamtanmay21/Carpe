@@ -40,6 +40,14 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".capture.QuickCaptureActivity"
+            android:theme="@style/Theme.QuickCaptureTranslucent"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:windowSoftInputMode="stateAlwaysVisible|adjustResize">
+        </activity>
+
         <service android:name=".CarpeConnectionService"
             android:permission="android.permission.BIND_TELECOM_CONNECTION_SERVICE"
             android:exported="true">
