@@ -13,6 +13,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import com.local.carpe.R
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -57,7 +58,9 @@ class QuickCaptureActivity : AppCompatActivity() {
 
         try {
             // 1. Write directly to the SQLite file
-            val dbPath = getDatabasePath("carpe_diem.db").path
+            // DatabaseHelper stores the app database in the application's files
+            // directory, rather than Android's default databases directory.
+            val dbPath = File(filesDir, "carpe_diem.db").path
             val db = SQLiteDatabase.openDatabase(dbPath, null, SQLiteDatabase.OPEN_READWRITE)
             
             val values = ContentValues().apply {
@@ -70,13 +73,12 @@ class QuickCaptureActivity : AppCompatActivity() {
 
             Toast.makeText(this, "Task saved", Toast.LENGTH_SHORT).show()
 
-            // 2. Trigger the background NLP processor (We will build CaptureWorker next)
-            /*
+            // 2. Trigger the background NLP processor.
+            QuickCaptureNotifier.show(this)
             val workRequest = OneTimeWorkRequestBuilder<CaptureWorker>()
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build()
             WorkManager.getInstance(this).enqueue(workRequest)
-            */
             
         } catch (e: Exception) {
             Toast.makeText(this, "Failed to save task", Toast.LENGTH_SHORT).show()
