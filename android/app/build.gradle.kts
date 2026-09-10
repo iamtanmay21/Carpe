@@ -53,4 +53,7 @@ dependencies {
     implementation("androidx.multidex:multidex:2.0.1")
     implementation("com.google.android.material:material:1.13.0")
     implementation("androidx.concurrent:concurrent-futures:1.3.0")
+    implementation("androidx.core:core-ktx:1.15.0")
+
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
 }
