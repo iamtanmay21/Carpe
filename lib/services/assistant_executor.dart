@@ -16,8 +16,9 @@ class AssistantExecutor {
 
   Future<ExecutionResult> executeVoiceCommand(String rawTranscript, {DateTime? referenceDate}) async {
     final now = referenceDate ?? DateTime.now();
-    // Strip seconds and milliseconds to guarantee alarms trigger exactly on the minute (00s)
-    final ref = DateTime(now.year, now.month, now.day, now.hour, now.minute);
+    // Use a minute-aligned reference for every parser path so relative targets
+    // (for example, "in 5 mins") do not retain seconds or milliseconds.
+    final ref = _roundToMinute(now);
     final db = await DatabaseHelper.instance.database;
 
     IntentBlueprint blueprint;
@@ -57,7 +58,9 @@ class AssistantExecutor {
       // ------------------------------------------
       case CommandIntent.create:
         final title = blueprint.rawTextTarget ?? "Voice Task";
-        final targetTime = _extractTargetTime(blueprint.slots) ?? ref.add(const Duration(hours: 1));
+        final targetTime = _roundToMinute(
+          _extractTargetTime(blueprint.slots) ?? ref.add(const Duration(hours: 1)),
+        );
         final targetSlot = _extractTargetSlot(blueprint.slots);
         final bucket = targetSlot?.bucket ?? TimeBlockBucket.none;
         final isAllDay = targetSlot?.isDateOnly == true;
@@ -222,7 +225,9 @@ class AssistantExecutor {
       // ------------------------------------------
       case CommandIntent.bulkMove:
         final range = _extractSourceRange(blueprint.slots) ?? DateTimeRange(start: ref, end: ref.add(const Duration(days: 1)));
-        final targetTime = _extractTargetTime(blueprint.slots) ?? ref.add(const Duration(days: 1));
+        final targetTime = _roundToMinute(
+          _extractTargetTime(blueprint.slots) ?? ref.add(const Duration(days: 1)),
+        );
         final bucket = _extractBucket(blueprint.slots);
 
         final String statusClause = blueprint.statusFilter == 'ALL' 
@@ -347,6 +352,10 @@ class AssistantExecutor {
   }
 
   // --- Helpers ---
+  DateTime _roundToMinute(DateTime value) {
+    return DateTime(value.year, value.month, value.day, value.hour, value.minute);
+  }
+
   TemporalSlot? _extractTargetSlot(List<TemporalSlot> slots) {
     return slots
         .where((s) => s.role == SlotType.destinationTarget && s.exactRange != null)
