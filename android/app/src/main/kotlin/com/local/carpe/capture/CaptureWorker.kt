@@ -60,7 +60,6 @@ class CaptureWorker(
         } finally {
             channel.setMethodCallHandler(null)
             engine.destroy()
-            QuickCaptureNotifier.cancel(applicationContext)
         }
     }
 

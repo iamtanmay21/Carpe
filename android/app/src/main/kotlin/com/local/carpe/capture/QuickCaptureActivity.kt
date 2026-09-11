@@ -58,9 +58,9 @@ class QuickCaptureActivity : AppCompatActivity() {
 
         try {
             // 1. Write directly to the SQLite file
-            // DatabaseHelper stores the app database in the application's files
-            // directory, rather than Android's default databases directory.
-            val dbPath = File(filesDir, "carpe_diem.db").path
+            // PathProvider's Android implementation stores application documents
+            // in the private `app_flutter` directory.
+            val dbPath = File(getDir("flutter", MODE_PRIVATE), "carpe_diem.db").path
             val db = SQLiteDatabase.openDatabase(dbPath, null, SQLiteDatabase.OPEN_READWRITE)
             
             val values = ContentValues().apply {

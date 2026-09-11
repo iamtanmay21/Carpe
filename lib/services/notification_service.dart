@@ -59,6 +59,9 @@ void notificationTapBackground(NotificationResponse response) async {
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
+  static const MethodChannel _quickCaptureNotificationChannel = MethodChannel(
+    'com.local.carpe/quick_capture_notification',
+  );
 
   static Future<void> initialize({bool isHeadless = false}) async {
     try {
@@ -129,38 +132,11 @@ class NotificationService {
   }
 
   static Future<void> showPersistentInputNotification({bool isHeadless = false}) async {
-    final androidImplementation = _androidImplementation;
-    if (androidImplementation != null && !isHeadless) {
-      await _requestAndroidNotificationPermission(androidImplementation);
-    }
+    if (kIsWeb) return;
 
-    const AndroidNotificationAction replyAction = AndroidNotificationAction(
-      'reply_action',
-      'Add Task',
-      inputs: [
-        AndroidNotificationActionInput(
-          label: 'e.g. Call mom at 7:30',
-        ),
-      ],
-      allowGeneratedReplies: true,
-    );
-
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'persistent_channel',
-      'Assistant Overlay',
-      importance: Importance.low,
-      priority: Priority.low,
-      ongoing: true,
-      autoCancel: false,
-      actions: [replyAction],
-    );
-
-    await _notifications.show(
-      0,
-      'Carpe Diem',
-      'What needs to be done?',
-      const NotificationDetails(android: androidDetails),
-    );
+    // A native PendingIntent is required to launch QuickCaptureActivity from
+    // the notification shade; Flutter notification actions cannot do that.
+    await _quickCaptureNotificationChannel.invokeMethod<void>('show');
   }
 
   /// Shows a separate, dismissible confirmation after a direct reply is

@@ -11,7 +11,7 @@ import androidx.core.app.NotificationManagerCompat
 import com.local.carpe.R
 
 object QuickCaptureNotifier {
-    private const val channelId = "quick_capture_processing"
+    private const val channelId = "persistent_channel"
     private const val notificationId = 1042
 
     fun show(context: Context) {
@@ -28,10 +28,16 @@ object QuickCaptureNotifier {
         )
         val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("Carpe is processing your capture")
-            .setContentText("Tap to add another task.")
+            .setContentTitle("Carpe Diem")
+            .setContentText("What needs to be done?")
             .setContentIntent(contentIntent)
+            .addAction(
+                R.mipmap.ic_launcher,
+                "Add Task",
+                contentIntent,
+            )
             .setOngoing(true)
+            .setAutoCancel(false)
             .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
@@ -48,7 +54,7 @@ object QuickCaptureNotifier {
 
         val channel = NotificationChannel(
             channelId,
-            "Quick capture",
+            "Assistant Overlay",
             NotificationManager.IMPORTANCE_LOW,
         )
         channel.setShowBadge(false)
