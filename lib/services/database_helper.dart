@@ -47,8 +47,11 @@ class DatabaseHelper {
   }
 
   Future<void> _onConfigure(Database db) async {
-    await db.execute('PRAGMA journal_mode = WAL;');
+    // FIX: PRAGMA journal_mode returns data, so it MUST use rawQuery on Android.
+    await db.rawQuery('PRAGMA journal_mode = WAL;');
+    // busy_timeout does not return data, so execute() is safe here.
     await db.execute('PRAGMA busy_timeout = 5000;');
+
   }
 
   Future<void> _onCreate(Database db, int version) async {
