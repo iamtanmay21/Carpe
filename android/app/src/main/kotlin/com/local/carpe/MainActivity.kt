@@ -2,12 +2,14 @@ package com.local.carpe
 
 import android.content.Intent
 import android.os.Bundle
+import com.local.carpe.capture.QuickCaptureNotifier
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.local.carpe/telecom"
+    private val quickCaptureNotificationChannel = "com.local.carpe/quick_capture_notification"
     private var methodChannel: MethodChannel? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -15,6 +17,22 @@ class MainActivity: FlutterActivity() {
         // Native telecom calls are handled by CarpeTelecomPlugin. Keeping this
         // sender allows QuickCaptureTileService intents to open the UI sheet.
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            quickCaptureNotificationChannel,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "show" -> {
+                    QuickCaptureNotifier.show(this)
+                    result.success(null)
+                }
+                "cancel" -> {
+                    QuickCaptureNotifier.cancel(this)
+                    result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
