@@ -1,6 +1,11 @@
 package com.local.carpe.capture
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
+import android.os.Build
+import android.util.Log
+import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import io.flutter.FlutterInjector
@@ -23,9 +28,9 @@ class CaptureWorker(
         var engine: FlutterEngine? = null
         var channel: MethodChannel? = null
 
-        // 1. Initialize Flutter on the Main Thread so native plugins work
         withContext(Dispatchers.Main) {
             try {
+                Log.d("CaptureWorker", "Initializing Flutter engine on Main thread")
                 val loader = FlutterInjector.instance().flutterLoader()
                 loader.startInitialization(applicationContext)
                 loader.ensureInitializationComplete(applicationContext, null)
@@ -33,18 +38,16 @@ class CaptureWorker(
                 engine = FlutterEngine(applicationContext)
                 GeneratedPluginRegister.registerGeneratedPlugins(engine!!)
 
-                channel = MethodChannel(
-                    engine!!.dartExecutor.binaryMessenger,
-                    "com.local.carpe/quick_capture_worker"
-                )
-                
+                channel = MethodChannel(engine!!.dartExecutor.binaryMessenger, "com.local.carpe/quick_capture_worker")
                 channel?.setMethodCallHandler { call, result ->
                     when (call.method) {
-                        "success", "done" -> {
+                        "success" -> {
+                            Log.d("CaptureWorker", "Dart signaled success")
                             completion.complete(Result.success())
                             result.success(null)
                         }
                         "retry" -> {
+                            Log.e("CaptureWorker", "Dart signaled retry/failure")
                             completion.complete(Result.retry())
                             result.success(null)
                         }
@@ -53,26 +56,46 @@ class CaptureWorker(
                 }
 
                 engine!!.dartExecutor.executeDartEntrypoint(
-                    DartExecutor.DartEntrypoint(
-                        loader.findAppBundlePath(),
-                        "quickCaptureHeadlessMain"
-                    )
+                    DartExecutor.DartEntrypoint(loader.findAppBundlePath(), "quickCaptureHeadlessMain")
                 )
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e("CaptureWorker", "Flutter Boot Failed", e)
+                showFailsafeNotification("Flutter Boot Failed", e.message ?: "Unknown Error")
                 completion.complete(Result.failure())
             }
         }
 
-        // 2. Wait for Dart on a Background Thread to prevent deadlocks
-        val finalResult = withTimeoutOrNull(60_000L) { completion.await() } ?: Result.retry()
+        val finalResult = withTimeoutOrNull(30_000L) { completion.await() }
+            ?: run {
+                Log.e("CaptureWorker", "Dart engine timed out")
+                showFailsafeNotification("Timeout", "Dart engine took too long.")
+                Result.retry()
+            }
 
-        // 3. Clean up memory on the Main Thread
         withContext(Dispatchers.Main) {
             channel?.setMethodCallHandler(null)
             engine?.destroy()
         }
 
         return finalResult
+    }
+
+    private fun showFailsafeNotification(title: String, message: String) {
+        val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                "feedback_channel",
+                "Assistant Feedback",
+                NotificationManager.IMPORTANCE_HIGH,
+            )
+            manager.createNotificationChannel(channel)
+        }
+        val notification = NotificationCompat.Builder(applicationContext, "feedback_channel")
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+        manager.notify(999, notification)
     }
 }
