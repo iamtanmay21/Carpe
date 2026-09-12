@@ -13,7 +13,6 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import com.local.carpe.R
-import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -57,10 +56,8 @@ class QuickCaptureActivity : AppCompatActivity() {
         }
 
         try {
-            // 1. Write directly to the SQLite file
-            // PathProvider's Android implementation stores application documents
-            // in the private `app_flutter` directory.
-            val dbPath = File(getDir("flutter", MODE_PRIVATE), "carpe_diem.db").path
+            // Point Kotlin to Flutter's specific `app_flutter` directory.
+            val dbPath = java.io.File(applicationInfo.dataDir, "app_flutter/carpe_diem.db").absolutePath
             val db = SQLiteDatabase.openDatabase(dbPath, null, SQLiteDatabase.OPEN_READWRITE)
             
             val values = ContentValues().apply {
