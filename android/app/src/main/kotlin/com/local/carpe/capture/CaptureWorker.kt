@@ -9,6 +9,8 @@ import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.embedding.engine.plugins.util.GeneratedPluginRegister
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 class CaptureWorker(
@@ -17,39 +19,47 @@ class CaptureWorker(
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
-        val loader = FlutterInjector.instance().flutterLoader()
-        loader.startInitialization(applicationContext)
-        loader.ensureInitializationComplete(applicationContext, null)
-
-        val engine = FlutterEngine(applicationContext)
         val completion = CompletableDeferred<Result>()
-        val channel = MethodChannel(
-            engine.dartExecutor.binaryMessenger,
-            QUICK_CAPTURE_WORKER_CHANNEL,
-        )
-
-        channel.setMethodCallHandler { call, result ->
-            when (call.method) {
-                "success", "done" -> {
-                    if (!completion.isCompleted) completion.complete(Result.success())
-                    result.success(null)
-                }
-                "retry" -> {
-                    if (!completion.isCompleted) completion.complete(Result.retry())
-                    result.success(null)
-                }
-                else -> result.notImplemented()
-            }
-        }
 
         return try {
-            GeneratedPluginRegister.registerGeneratedPlugins(engine)
-            engine.dartExecutor.executeDartEntrypoint(
-                DartExecutor.DartEntrypoint(
-                    loader.findAppBundlePath(),
-                    "quickCaptureHeadlessMain",
-                ),
-            )
+            withContext(Dispatchers.Main) {
+                val loader = FlutterInjector.instance().flutterLoader()
+                loader.startInitialization(applicationContext)
+                loader.ensureInitializationComplete(applicationContext, null)
+
+                val engine = FlutterEngine(applicationContext)
+                val channel = MethodChannel(
+                    engine.dartExecutor.binaryMessenger,
+                    QUICK_CAPTURE_WORKER_CHANNEL,
+                )
+
+                completion.invokeOnCompletion {
+                    channel.setMethodCallHandler(null)
+                    engine.destroy()
+                }
+
+                channel.setMethodCallHandler { call, result ->
+                    when (call.method) {
+                        "success", "done" -> {
+                            if (!completion.isCompleted) completion.complete(Result.success())
+                            result.success(null)
+                        }
+                        "retry" -> {
+                            if (!completion.isCompleted) completion.complete(Result.retry())
+                            result.success(null)
+                        }
+                        else -> result.notImplemented()
+                    }
+                }
+
+                GeneratedPluginRegister.registerGeneratedPlugins(engine)
+                engine.dartExecutor.executeDartEntrypoint(
+                    DartExecutor.DartEntrypoint(
+                        loader.findAppBundlePath(),
+                        "quickCaptureHeadlessMain",
+                    ),
+                )
+            }
 
             // A headless engine has no lifecycle callback. The Dart entrypoint
             // explicitly completes this worker over the channel when processing ends.
@@ -58,8 +68,9 @@ class CaptureWorker(
         } catch (_: Exception) {
             Result.retry()
         } finally {
-            channel.setMethodCallHandler(null)
-            engine.destroy()
+            // Complete timed out or failed workers so the completion listener can
+            // release the headless Flutter engine.
+            completion.complete(Result.retry())
         }
     }
 
