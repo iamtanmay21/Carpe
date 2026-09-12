@@ -1,6 +1,11 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/theme.dart';
+import 'services/assistant_executor.dart';
+import 'services/database_helper.dart';
 import 'ui/dashboard_screen.dart';
 import 'ui/permissions_firewall.dart';
 import 'services/notification_service.dart';
@@ -35,5 +40,48 @@ class CarpeDiemApp extends StatelessWidget {
       home: startAtDashboard ? const DashboardScreen() : const PermissionsFirewall(),
       debugShowCheckedModeBanner: false,
     );
+  }
+}
+
+@pragma('vm:entry-point')
+Future<void> quickCaptureHeadlessMain() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  DartPluginRegistrant.ensureInitialized();
+  const channel = MethodChannel('com.local.carpe/quick_capture_worker');
+
+  try {
+    await NotificationService.initialize(isHeadless: true);
+    final db = await DatabaseHelper.instance.database;
+
+    final pending = await db.query(
+      'capture_inbox',
+      where: 'status = ?',
+      whereArgs: ['PENDING'],
+      orderBy: 'created_at ASC',
+    );
+
+    for (final capture in pending) {
+      final id = capture['id'];
+      final text = capture['raw_text'] as String;
+      final timestamp = capture['created_at'] as int;
+
+      final refDate = DateTime.fromMillisecondsSinceEpoch(timestamp);
+      final result = await AssistantExecutor.instance.executeVoiceCommand(
+        text,
+        referenceDate: refDate,
+      );
+
+      await db.update(
+        'capture_inbox',
+        {'status': 'DONE'},
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+      await NotificationService.showAssistantFeedback(result);
+    }
+    await channel.invokeMethod<void>('success');
+  } catch (e) {
+    await NotificationService.showIsolateCrash('Headless Crash: $e');
+    await channel.invokeMethod<void>('retry');
   }
 }

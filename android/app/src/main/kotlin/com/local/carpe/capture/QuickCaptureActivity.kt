@@ -10,7 +10,6 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import com.local.carpe.R
 import java.text.SimpleDateFormat
@@ -72,9 +71,7 @@ class QuickCaptureActivity : AppCompatActivity() {
 
             // 2. Trigger the background NLP processor.
             QuickCaptureNotifier.show(this)
-            val workRequest = OneTimeWorkRequestBuilder<CaptureWorker>()
-                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-                .build()
+            val workRequest = OneTimeWorkRequestBuilder<CaptureWorker>().build()
             WorkManager.getInstance(this).enqueue(workRequest)
             
         } catch (e: Exception) {
