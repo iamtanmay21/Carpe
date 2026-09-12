@@ -1,50 +1,56 @@
-import 'package:flutter/services.dart';
+import 'dart:ui';
 import 'package:flutter/widgets.dart';
-
-import '../models/execution_result.dart';
-import 'assistant_executor.dart';
+import 'package:flutter/services.dart';
 import 'database_helper.dart';
+import 'assistant_executor.dart';
 import 'notification_service.dart';
 
-const _quickCaptureWorkerChannel = MethodChannel(
-  'com.local.carpe/quick_capture_worker',
-);
-
-/// Processes captures inserted by the native quick-capture activity.
 @pragma('vm:entry-point')
 Future<void> quickCaptureHeadlessMain() async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
 
+  const channel = MethodChannel('com.local.carpe/quick_capture_worker');
+
   try {
-    final db = await DatabaseHelper.instance.database;
+    // 1. Initialize notifications to allow background feedback
     await NotificationService.initialize(isHeadless: true);
-    final captures = await db.query(
+    
+    final db = await DatabaseHelper.instance.database;
+    
+    // 2. Fetch pending tasks from the Kotlin UI
+    final pending = await db.query(
       'capture_inbox',
       where: 'status = ?',
       whereArgs: ['PENDING'],
       orderBy: 'created_at ASC',
     );
 
-    for (final capture in captures) {
-      final ExecutionResult result =
-          await AssistantExecutor.instance.executeVoiceCommand(
-        capture['raw_text'] as String,
-        referenceDate: DateTime.fromMillisecondsSinceEpoch(
-          capture['created_at'] as int,
-        ),
-      );
+    for (final capture in pending) {
+      final id = capture['id'];
+      final text = capture['raw_text'] as String;
+      final timestamp = capture['created_at'] as int;
+      
+      // 3. Inject the exact UI submission time to fix relative NLP rounding
+      final refDate = DateTime.fromMillisecondsSinceEpoch(timestamp);
+      final result = await AssistantExecutor.instance.executeVoiceCommand(text, referenceDate: refDate);
+      
+      // 4. Mark as processed
       await db.update(
         'capture_inbox',
         {'status': 'DONE'},
         where: 'id = ?',
-        whereArgs: [capture['id']],
+        whereArgs: [id],
       );
+      
+      // 5. Fire the success notification
       await NotificationService.showAssistantFeedback(result);
     }
 
-    await _quickCaptureWorkerChannel.invokeMethod<void>('success');
-  } catch (_) {
-    await _quickCaptureWorkerChannel.invokeMethod<void>('retry');
+    // 6. Signal Kotlin to close the background worker
+    await channel.invokeMethod<void>('success');
+  } catch (e, stacktrace) {
+    debugPrint('Headless processing failed: $e\n$stacktrace');
+    await channel.invokeMethod<void>('retry');
   }
 }
