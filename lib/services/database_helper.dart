@@ -26,8 +26,8 @@ class DatabaseHelper {
     if (kIsWeb) {
       databaseFactory = databaseFactoryFfiWeb;
     } else {
-      // FFI is strictly reserved for desktop. Android uses standard native sqflite.
-      if (io.Platform.isWindows || io.Platform.isLinux) {
+      // Restore FFI for Android to support FTS5 on all OEM devices.
+      if (io.Platform.isAndroid || io.Platform.isWindows || io.Platform.isLinux) {
         sqfliteFfiInit();
         databaseFactory = databaseFactoryFfi;
       }
@@ -38,7 +38,7 @@ class DatabaseHelper {
     return await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 4, // Bumped to 4 to trigger the capture_inbox migration
+        version: 4,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       ),
